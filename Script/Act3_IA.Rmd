@@ -49,6 +49,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 ##### ¿Qué método habéis escogido para llevar a cabo la imputación de los datos? Razonad vuestra respuesta. (0,3 puntos).
+El método escogido.....
 
 ##### ¿Habéis llevado a cabo algún otro tipo de procesamiento? Razonad vuestra respuesta. (0,2 puntos).
 
