@@ -1,6 +1,6 @@
 ---
 title: "Análisis de un conjunto de datos de origen biológico mediante técnicas de machine learning supervisadas y no supervisadas"
-author: "Carmen, Lidia, Laura, Cristia, Alba Garcia Moya"
+author: "Carmen, Lidia Sanchez, Laura, Cristia, Alba Garcia Moya"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
   html_document:
