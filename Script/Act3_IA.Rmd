@@ -45,17 +45,35 @@ library(pROC) # ROC
 library(PRROC) # PR-Curve
 library(gridExtra) # juntar los gráficos
 
+clases <- read.csv("Datos/classes.csv", header=F, sep = ";")
+gene_expression_names <- read.csv("Datos/gene_expression.csv", header=F, sep = ";", col.names = read_lines("column_names.txt"))
 
 ```
 DEPURADO DE LOS DATOS
 
 ```{r depurar, include=FALSE}
 
-# nombre de las columnas
+#nombre de las columnas
 
 colnames(gene_expression) <- read_lines("Datos/column_names.txt")
 
+# Asignar nombres a las columnas de classes
+
+colnames(classes) <- c("Muestra", "Clase")
+
+# Datos NA 
+sumas <- colSums(gene_expression) 
+columnascero <- names(sumas[sumas==0])
+gene_expression <- gene_expression[, !names(gene_expression) %in% columnascero] 
+
+# Unir archivos
+
 dataframe <-cbind(gene_expression,classes)
+
+# Mover columnas clase y muestra
+
+dataframe <- dataframe %>%
+                select(Muestra, Clase, everything())
 
 
 
