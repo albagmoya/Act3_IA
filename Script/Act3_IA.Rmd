@@ -34,7 +34,36 @@ $(document).ready(function() {
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
+
+library(glmnet) # ElasticNet
+library(tidyverse)
+library(caret) # ML
+library(rpart) # DT
+library(rpart.plot) # DT plot
+library(rattle) # DT plot
+library(pROC) # ROC
+library(PRROC) # PR-Curve
+library(gridExtra) # juntar los gráficos
+
+
 ```
+DEPURADO DE LOS DATOS
+
+```{r depurar, include=FALSE}
+
+# nombre de las columnas
+
+colnames(gene_expression) <- read_lines("Datos/column_names.txt")
+
+dataframe <-cbind(gene_expression,classes)
+
+
+
+```
+
+
+
+
 # Implementación de cuatro métodos de aprendizaje no supervisado
 
 # Implementación de tres métodos de aprendizaje supervisado 
