@@ -49,7 +49,20 @@ clases <- read.csv("Datos/classes.csv", header=F, sep = ";")
 gene_expression_names <- read.csv("Datos/gene_expression.csv", header=F, sep = ";", col.names = read_lines("column_names.txt"))
 
 ```
+
+
 DEPURADO DE LOS DATOS
+###    1. Procesamiento de los datos (0,5 puntos):
+
+
+##### ¿Qué método habéis escogido para llevar a cabo la imputación de los datos? Razonad vuestra respuesta. (0,3 puntos).
+El método escogido.....
+
+##### ¿Habéis llevado a cabo algún otro tipo de procesamiento? Razonad vuestra respuesta. (0,2 puntos).
+
+
+
+
 
 ```{r depurar, include=FALSE}
 
@@ -84,7 +97,22 @@ dataframe <- dataframe %>%
 
 # Implementación de cuatro métodos de aprendizaje no supervisado
 
+
+
+
+
+
 # Implementación de tres métodos de aprendizaje supervisado 
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+
+
+
+
+
+
+```
 
 ### Métricas de evaluación
 
@@ -92,13 +120,7 @@ dataframe <- dataframe %>%
 # Preguntas sobre las actividades
 
 
-###    1. Procesamiento de los datos (0,5 puntos):
 
-
-##### ¿Qué método habéis escogido para llevar a cabo la imputación de los datos? Razonad vuestra respuesta. (0,3 puntos).
-El método escogido.....
-
-##### ¿Habéis llevado a cabo algún otro tipo de procesamiento? Razonad vuestra respuesta. (0,2 puntos).
 
 ###    2. Métodos no supervisados (1 punto):
 
