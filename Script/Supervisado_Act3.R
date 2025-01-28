@@ -4,6 +4,8 @@ rm(list=ls())
 
 setwd("/Users/carme/OneDrive/Escritorio/R/Master_bioinformatica/Algoritmos/actividades/Act3_IA")
 
+setwd("/home/albagmoya/Escriptori/IA/Act3_IA")
+
 #Preparación del entorno de trabajo
 
 #Cargar librerias
@@ -23,6 +25,7 @@ library(klaR)
 library(rpart)
 
 #Cargar dataset
+
 classes <- read.csv("Datos/classes.csv", header=F, sep = ";")
 gene_expression <- read.csv("Datos/gene_expression.csv", header=F, sep = ";", col.names = read_lines("Datos/column_names.txt"))
 
@@ -30,7 +33,7 @@ gene_expression <- read.csv("Datos/gene_expression.csv", header=F, sep = ";", co
 ------------------------------------------------------------------------------------------
 # Nombre de las columnas
   
-  colnames(gene_expression) <- read_lines("Datos/column_names.txt")
+colnames(gene_expression) <- read_lines("Datos/column_names.txt")
 
 # Asignar nombres a las columnas de classes
 
@@ -54,65 +57,61 @@ dataframe <- dataframe %>%
 data_scaled <- dataframe %>%
   mutate(across(where(is.numeric), scale))
 
+# Quitamos la columna Muestra
+data_scaled <- data_scaled %>% dplyr::select(-Muestra)
 
 ------------------------------------------------------------------------------------------
 
-
-
 # Dividir el conjunto de datos: entrenamiento (80%) y prueba (20%)
-data_scaled$Clase <- as.factor(data_scaled$Clase)
-levels(data_scaled$Clase)
-
+  
 set.seed(1995)
 
-# Crear índices de partición
+data_scaled$Clase <- as.factor(data_scaled$Clase)
 train_index <- createDataPartition(data_scaled$Clase, p = 0.8, list = FALSE)
 
-# Crear conjuntos de entrenamiento y prueba
 train_data <- data_scaled[train_index, ]
 test_data <- data_scaled[-train_index, ]
 
+train_data$Clase <- factor(train_data$Clase, levels = c("AGH", "CFB", "CGC", "CHC", "HPB"))
+test_data$Clase <- factor(test_data$Clase, levels = c("AGH", "CFB", "CGC", "CHC", "HPB"))
 
+str(data_scaled)
 
-#A partir de aqui son cosas para la division de los datos que me ha dicho chatgpt con otras cosas que he visto del profesor pero no lo usé para la actividad 2
-
-# Asegurarse de que la variable 'Muestra' es un factor
-train_data$Muestra <- factor(train_data$Muestra)
-test_data$Muestra <- factor(test_data$Muestra, levels = levels(train_data$Muestra))
 
 # Seleccionar las columnas numéricas para escalarlas
-numerical_columns_train <- train_data[, sapply(train_data, is.numeric)]
-scaled_train_data <- scale(numerical_columns_train)
+# numerical_columns_train <- train_data[, sapply(train_data, is.numeric)]
+# scaled_train_data <- scale(numerical_columns_train)
 
 # Convertir los datos escalados a un data.frame
-scaled_train_data <- as.data.frame(scaled_train_data)
+# scaled_train_data <- as.data.frame(scaled_train_data)
 
 # Unir los datos escalados con la variable Clase y Muestra en el conjunto de entrenamiento
-train_data <- cbind(scaled_train_data, Clase = train_data$Clase, Muestra = train_data$Muestra)
+# train_data <- cbind(scaled_train_data, Clase = train_data$Clase, Muestra = train_data$Muestra)
 
 # Asegurarse de que el conjunto de datos de entrenamiento es un data.frame
-train_data <- as.data.frame(train_data)
+# train_data <- as.data.frame(train_data)
 
 # Escalar las columnas numéricas del conjunto de prueba
-numerical_columns_test <- test_data[, sapply(test_data, is.numeric)]
-scaled_test_data <- scale(numerical_columns_test)
+# numerical_columns_test <- test_data[, sapply(test_data, is.numeric)]
+# scaled_test_data <- scale(numerical_columns_test)
 
 # Convertir los datos escalados a un data.frame
-scaled_test_data <- as.data.frame(scaled_test_data)
+# scaled_test_data <- as.data.frame(scaled_test_data)
 
 # Unir los datos escalados con la variable Clase y Muestra en el conjunto de prueba
-test_data <- cbind(scaled_test_data, Clase = test_data$Clase, Muestra = test_data$Muestra)
+# test_data <- cbind(scaled_test_data, Clase = test_data$Clase, Muestra = test_data$Muestra)
 
 # Asegurarse de que el conjunto de datos de prueba es un data.frame
-test_data <- as.data.frame(test_data)
-
-# Convertir 'Clase' a factor en ambos conjuntos de datos
-train_data$Clase <- as.factor(train_data$Clase)
-test_data$Clase <- as.factor(test_data$Clase)
+# test_data <- as.data.frame(test_data)
 
 # Confirmar la estructura de los datos
 str(train_data)
 str(test_data)
+
+nearZeroVar(data_scaled, saveMetrics = TRUE)
+
+colSums(apply(data_scaled, 2, var, na.rm = TRUE) == 0)
+
 
 ------------------------------------------------------------------------------------------
 
@@ -265,20 +264,12 @@ print(rda_conf_matrix)
 
 
 
-
-
 ##################################
 #Modelo kNN (k-Nearest Neighbors)#
 ##################################
 
 library(caret)
 
-
-# Identificar variables con varianza cero
-nzv <- nearZeroVar(train_data)
-
-# Eliminar variables con varianza cero
-train_data <- train_data[, -nzv]
 
 #Crear un modelo de k-NN utilizando el paquete caret
 knnModel <- train(Clase ~ .,
@@ -313,12 +304,7 @@ print(knn_conf_matrix)
 probabilities_knn <- predict(knnModel, newdata = test_data, type = "prob")
 probabilities_knn
 
-
-
 ------------------------------------------------------------------------------------------
-
-
-
 
 ##############################
 #SVM (Support Vector Machine)#
@@ -337,8 +323,8 @@ svmModelLineal <- train(Clase ~.,
                         prob.model = TRUE) 
 svmModelLineal
 
-  
 plot(svmModelLineal) 
+
 #Comentar plot ejemplo: Se ve como en el modelo de clasificacion, con valores mayores del cost va disminuyendo la precision, el primer valor es el que mejor funciona (C = 0.1052632).
 
   
