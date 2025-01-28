@@ -62,8 +62,6 @@ El método escogido.....
 
 
 
-
-
 ```{r depurar, include=FALSE}
 
 #nombre de las columnas
@@ -87,7 +85,6 @@ dataframe <-cbind(gene_expression,classes)
 
 dataframe <- dataframe %>%
                 select(Muestra, Clase, everything())
-
 
 
 ```
