@@ -1,6 +1,6 @@
 ---
 title: "Análisis de un conjunto de datos de origen biológico mediante técnicas de machine learning supervisadas y no supervisadas"
-author: "Carmen, Lidia Sanchez, Laura, Cristia, Alba Garcia Moya"
+author: "Carmen Palacios Clar, Lidia Sanchez, Laura, Alba Garcia Moya"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
   html_document:
@@ -29,12 +29,16 @@ $(document).ready(function() {
 
 ```
 # Objetivo
-
+El objetivo de esta actividad es implementar de forma razonada técnicas de aprendizaje supervisado y no supervisado para el análisis de un conjunto de datos de origen biológico. 
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
+#setwd("/Users/carme/OneDrive/Escritorio/R/Master_bioinformatica/Algoritmos/actividades/Act3_IA")
 
+#Preparación del entorno de trabajo
+
+#Cargar librerias
 library(glmnet) # ElasticNet
 library(tidyverse)
 library(caret) # ML
@@ -44,9 +48,15 @@ library(rattle) # DT plot
 library(pROC) # ROC
 library(PRROC) # PR-Curve
 library(gridExtra) # juntar los gráficos
+library(dplyr)
+library(MASS)
+library(class)
+library(klaR)
+library(rpart)
 
+#Cargar dataset
 clases <- read.csv("Datos/classes.csv", header=F, sep = ";")
-gene_expression_names <- read.csv("Datos/gene_expression.csv", header=F, sep = ";", col.names = read_lines("column_names.txt"))
+gene_expression_names <- read.csv("Datos/gene_expression.csv", header=F, sep = ";", col.names = read_lines("Datos/column_names.txt"))
 
 ```
 
@@ -64,7 +74,7 @@ El método escogido.....
 
 ```{r depurar, include=FALSE}
 
-#nombre de las columnas
+#Nombre de las columnas
 
 colnames(gene_expression) <- read_lines("Datos/column_names.txt")
 
@@ -79,12 +89,16 @@ gene_expression <- gene_expression[, !names(gene_expression) %in% columnascero]
 
 # Unir archivos
 
-dataframe <-cbind(gene_expression,classes)
+dataframe <-cbind(gene_expression, classes)
+
 
 # Mover columnas clase y muestra
-
 dataframe <- dataframe %>%
-                select(Muestra, Clase, everything())
+  dplyr::select(Muestra, Clase, everything())
+
+#Escalado de datos
+data_scaled <- dataframe %>%
+  mutate(across(where(is.numeric), scale))
 
 
 ```
@@ -103,13 +117,41 @@ dataframe <- dataframe %>%
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 
+#Preparación para el trabajo con métodos supervisados
+
+dataframe$Clase <- as.factor(dataframe$Clase)
+levels(dataframe$Clase)  #Comprobar las clases existetes: "AGH" "CFB" "CGC" "CHC" "HPB"
 
 
+#División del conjunto de datos: entrenamiento (80%) y prueba (20%)
+data_scaled$Clase <- as.factor(data_scaled$Clase)
+levels(data_scaled$Clase)
 
+set.seed(1995)
 
+train_index <- createDataPartition(data_scaled$Clase, p = 0.8, list = FALSE)
+train_data <- data_scaled[train_index, ]
+test_data <- data_scaled[-train_index, ]
 
 
 ```
+
+Después de comprobar los modelos supervisados: *LDA, QDA, RDA, kNN, SMV lineal y árbol de decisión*, se deciden implementear los 3 siguientes:
+
+###Modelo QDA (No linear Discriminant Analysis)
+Tiene como objetivo clasificar datos en múltiples categorías (benigno, maligno) permitiendo fronteras de decisión no lineales. Utiliza funciones cuadráticas para separar las clases.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+#
+
+```
+
+
+
+
+
+
 
 ### Métricas de evaluación
 
