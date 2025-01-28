@@ -138,19 +138,186 @@ test_data <- data_scaled[-train_index, ]
 
 Después de comprobar los modelos supervisados: *LDA, QDA, RDA, kNN, SMV lineal y árbol de decisión*, se deciden implementear los 3 siguientes:
 
-###Modelo QDA (No linear Discriminant Analysis)
-Tiene como objetivo clasificar datos en múltiples categorías (benigno, maligno) permitiendo fronteras de decisión no lineales. Utiliza funciones cuadráticas para separar las clases.
+###Modelo SVM lineal (Support Vector Machine)
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 
-#
+#SVM (Support Vector Machine)
+
+
+library(caret)
+  
+  
+#Modelo de SVM lineal utilizando el paquete caret
+svmModelLineal <- train(Clase ~.,
+                        data = train_data,
+                        method = "svmLinear",
+                        trControl = trainControl(method = "cv", number = 10),
+                        preProcess = c("center", "scale"),
+                        tuneGrid = expand.grid(C = seq(0, 2, length = 20)), 
+                        prob.model = TRUE) 
+svmModelLineal
+
+plot(svmModelLineal) 
+
+#En el gráfico se observa que el valor del cost mejor está cercano a 1.5 (C = 1.368421).
+
+  
+#Realizar predicciones en el conjunto de prueba utilizando el modelo entrenado
+predictions <- predict(svmModelLineal, newdata = test_data )
+predictions
+  
+#Evaluar la precisión del modelo utilizando la matriz de confusión
+smvModelLineal_conf_matrix <- confusionMatrix(predictions, test_data$Clase)
+print(smvModelLineal_conf_matrix)
+
+
+#SVM lineal
+probabilities_svm_linear <- predict(svmModelLineal, newdata = test_data, type = "prob")
+probabilities_svm_linear
+
 
 ```
 
+#####################################
+#SVM lienal (Support Vector Machine)#
+#####################################
+
+La matriz de confusión muestra el número de predicciones correctas e incorrectas para cada clase:
+- AGH: 29 casos fueron correctamente clasificados como AGH. No hubo errores.
+- CFB: 60 casos fueron correctamente clasificados como CFB. Hubo 2 falsos positivos (se predijo CFB cuando era CGC).
+- CGC: 28 casos fueron correctamente clasificados como CGC. Hubo 16 falsos positivos (se predijo CGC cuando era CHC) y 8 falsos positivos (se predijo CGC cuando era HPB).
+- CHC: 9 casos fueron correctamente clasificados como CHC.
+- HPB: 7 casos fueron correctamente clasificados como HPB.
+
+ Estadísticas Globales
+- Accuracy (Exactitud): La exactitud global del modelo es del 83.65%, lo que indica que clasificó correctamente el 83.65% de todos los casos. El intervalo de confianza del 95% (0.7697, 0.8903) sugiere na confianza moderada en esta estimación. Notablemente menor que el modelo anterior.
+- Kappa: El coeficiente Kappa de 0.7815 indica una buena concordancia entre las predicciones del modelo y las etiquetas reales, aunque no tan alta como el modelo anterior.
+- Valor P [Exactitud > Tasa de No Información]: El valor p < 2.2e-16 es extremadamente significativo. Esto indica que la exactitud del modelo es significativamente superior a la tasa de no información (.3774).
+
+Estadísticas por clase
+ Sensibilidad (Recall):
+- AGH: 100% (todos los casos AGH reales fueron identificados correctamente).
+- CFB: 100% (todos los casos CFB reales fueron identificados correctamente).
+- CGC: 100% (todos los casos CGC reales fueron identificados correctamente).
+- CHC: 33.33% (solo un tercio de los casos CHC reales fueron identificados correctamente).
+- HPB: 46.67% (menos de la mitad de los casos HPB reales fueron identificados correctamente).
+
+ Especificidad:
+-  AGH: 100% (todos los casos que no eran AGH fueron clasificados correctamente como no AGH).
+-  CFB: 97.98% (casi todos los casos que no eran CFB fueron clasificados correctamente como no CFB).
+-  CGC: 81.68% (un número considerable de casos que no eran CGC fueron incorrectamente clasificados como CGC).
+-  CHC: 100% (todos los casos que no eran CHC fueron clasificados correctamente como no CHC).
+-  HPB: 100% (todos los casos que no eran HPB fueron clasificados correctamente como no HPB).
+
+ Valor Predictivo Positivo (PPV):
+- AGH: 100% (todos los casos predichos como AGH realmente eran AGH).
+- CFB: 96.77% (casi todos los casos predichos como CFB realmente eran CFB).
+- CGC: 53.85% (algo más de la mitad de los casos predichos como CGC realmente eran CGC).
+- CHC: 100% (todos los casos predichos como CHC realmente eran CHC).
+- HPB: 100% (todos los casos predichos como HPB realmente eran HPB).
+
+ Valor Predictivo Negativo (NPV):
+- AGH: 100% (todos los casos predichos como no AGH realmente no eran AGH).
+- CFB: 100% (todos los casos predichos como no CFB realmente no eran CFB).
+- CGC: 100% (todos los casos predichos como no CGC realmente no eran CGC).
+- CHC: 88% (la mayoría de los casos predichos como no CHC realmente no eran CHC).
+- HPB: 94.74% (casi todos los casos predichos como no HPB realmente no eran HPB).
+
+
+###Modelo kNN (k-Nearest Neighbors)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+##################################
+#Modelo kNN (k-Nearest Neighbors)#
+##################################
+
+library(caret)
+
+
+#Crear un modelo de k-NN utilizando el paquete caret
+knnModel <- train(Clase ~ .,
+                  data = train_data,
+                  method = "knn",
+                  trControl = trainControl(method = "cv", number = 10),
+                  preProcess = c("center", "scale"),
+                  tuneLength = 30)
+knnModel
+# Accuracy was used to select the optimal model using the largest value. The final value used for the model was k = 15.
+
+
+plot(knnModel)
+#A mayor número de vecinos peor va clasificando. En la gráfica vemos que k=15 es óptimo.
+
+#Realizar predicciones en el conjunto de prueba utilizando el modelo entrenado
+predictions <- predict(knnModel, newdata = test_data )
+predictions
+
+#Evaluar la precisión del modelo utilizando la matriz de confusión
+knn_conf_matrix <- confusionMatrix(predictions, test_data$Clase)
+print(knn_conf_matrix)
+
+
+
+```
+
+##################################
+#Modelo kNN (k-Nearest Neighbors)#
+##################################
+
+ La matriz de confusión muestra el número de predicciones correctas e incorrectas para cada clase:
+
+ - AGH: 28 casos fueron correctamente clasificadas como AGH. Hubo 1 falso negativo (se predijo CHC cuando era AGH).
+ - CFB: 60 casos fueron correctamente clasificadas como CFB. No hubo errores.
+ - CGC: 28 casos fueron correctamente clasificadas como CGC. Hubo 1 falso positivo (se predijo CGC cuando era HPB).
+ - CHC: 27 casos fueron correctamente clasificadas como CHC. Hubo 1 falso negativo (se predijo AGH cuando era CHC).
+ - HPB: 14 casos fueron correctamente clasificadas como HPB. No hubo errores.
+
+ Estadísticas Globales
+- Accuracy (Exactitud): La exactitud global del modelo es del 98.74%, lo que indica que clasificó correctamente el 98.74% de todos los casos. El intervalo de confianza del 95% (0.9553, 0.9985) sugiere na alta confianza en esta estimación.
+- Kappa: El coeficiente Kappa de 0.9833 indica una excelente concordancia entre las predicciones del modelo y las etiquetas reales, más allá del azar.
+- Valor P [Exactitud > Tasa de No Información]: El valor p < 2.2e-16 es extremadamente significativo. Esto indica que la exactitud del modelo es significativamente superior a la tasa de no información (0.3774), que representa la exactitud que se obtendría si siempre se predijera la clase más frecuente.
+
+Estadísticas por clase
+Sensibilidad (Recall):
+- AGH: 96.55% (casi todos los casos AGH reales fueron identificadas correctamente).
+- CFB: 100% (todos los casos CFB reales fueron identificadas correctamente).
+- CGC: 100% (todos los casos CGC reales fueron identificadas correctamente).
+- CHC: 100% (todos los casos CHC reales fueron identificadas correctamente).
+- HPB: 93.33% (la mayoría de los casos HPB reales fueron identificadas correctamente).
+
+ Especificidad:
+- AGH: 100% (todos los casos que no eran AGH fueron clasificadas correctamente como no AGH).
+- CFB: 100% (todos los casos que no eran CFB fueron clasificadas correctamente como no CFB).
+- CGC: 99.24% (casi todos los casos que no eran CGC fueron clasificadas correctamente como no CGC).
+- CHC: 99.24% (casi todos los casos que no eran CHC fueron clasificadas correctamente como no CHC).
+- HPB: 100% (todos los casos que no eran HPB fueron clasificadas correctamente como no HPB).
+
+ Valor Predictivo Positivo (PPV):
+ - AGH: 100% (todos los casos predichas como AGH realmente eran AGH).
+ - CFB: 100% (todos los casos predichas como CFB realmente eran CFB).
+ - CGC: 96.55% (la mayoría de las casos predichas como CGC realmente eran CGC).
+ - CHC: 96.43% (la mayoría de las casos predichas como CHC realmente eran CHC).
+ - HPB: 100% (todos los casos predichas como HPB realmente eran HPB).
+
+ Valor Predictivo Negativo (NPV):
+ - AGH: 99.24% (casi todos los casos predichas como no AGH realmente no eran AGH).
+ - CFB: 100% (todos los casos predichas como no CFB realmente no eran CFB).
+ - CGC: 100% (todos los casos predichas como no CGC realmente no eran CGC).
+ - CHC: 100% (todos los casos predichas como no CHC realmente no eran CHC).
+ - HPB: 99.31% (casi todos los casos predichas como no HPB realmente no eran HPB).
 
 
 
 
+
+###Modelo 
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+
+
+```
 
 
 ### Métricas de evaluación
