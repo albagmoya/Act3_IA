@@ -100,6 +100,13 @@ dataframe <- dataframe %>%
 data_scaled <- dataframe %>%
   mutate(across(where(is.numeric), scale))
 
+# Quitamos la columna Muestra
+data_scaled <- data_scaled %>% dplyr::select(-Muestra)
+
+
+#Filtrado de datos columnas de varianza cero
+filt_data_scaled <- data_scaled[,-nearZeroVar(data_scaled)]
+
 
 ```
 
@@ -120,18 +127,19 @@ data_scaled <- dataframe %>%
 #Preparación para el trabajo con métodos supervisados
 
 dataframe$Clase <- as.factor(dataframe$Clase)
-levels(dataframe$Clase)  #Comprobar las clases existetes: "AGH" "CFB" "CGC" "CHC" "HPB"
-
-
-#División del conjunto de datos: entrenamiento (80%) y prueba (20%)
-data_scaled$Clase <- as.factor(data_scaled$Clase)
-levels(data_scaled$Clase)
 
 set.seed(1995)
 
-train_index <- createDataPartition(data_scaled$Clase, p = 0.8, list = FALSE)
-train_data <- data_scaled[train_index, ]
-test_data <- data_scaled[-train_index, ]
+#División del conjunto de datos filtrados: entrenamiento (80%) y prueba (20%)
+filt_data_scaled$Clase <- as.factor(filt_data_scaled$Clase)
+train_index <- createDataPartition(filt_data_scaled$Clase, p = 0.8, list = FALSE)
+
+train_data <- filt_data_scaled[train_index, ]
+test_data <- filt_data_scaled[-train_index, ]
+
+train_data$Clase <- factor(train_data$Clase, levels = c("AGH", "CFB", "CGC", "CHC", "HPB"))
+test_data$Clase <- factor(test_data$Clase, levels = c("AGH", "CFB", "CGC", "CHC", "HPB"))
+
 
 
 ```
@@ -311,13 +319,103 @@ Sensibilidad (Recall):
 
 
 
-###Modelo 
+###Modelo LDA (Linear Discriminant Analysis)
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
+#Modelo LDA (Linear Discriminant Analysis)
 
+###########################################
+#Modelo LDA (Linear Discriminant Analysis)#
+###########################################
+library(MASS)
+
+#Entrenar el modelo LDA
+lda_model <- MASS::lda(Clase ~ ., data = train_data)
+
+lda_pred <- predict(lda_model, newdata = train_data)
+lda_pred$x
+
+#Realizar predicciones sobre el conjunto de prueba
+lda_predictions <- predict(lda_model, newdata = test_data)
+lda_predictions$x
+
+#Obtener la predicción (predicciones de la clase)
+predicted_classes <- lda_predictions$class
+predicted_classes
+length(predicted_classes)
+
+#Obtener las verdaderas etiquetas (las clases reales en el conjunto de prueba)
+true_classes <- as.factor(test_data$Clase)
+true_classes
+length(true_classes)
+
+#Crear la matriz de confusión (predicho test vs. real test
+lda_conf_matrix <- confusionMatrix(predicted_classes, true_classes)
+print(lda_conf_matrix)
+
+##################################################si queremos incluirlo
+#Gráfico 
+predict(lda_model)
+
+library(ggplot2)
+lda.data <- cbind(train_data, predict(lda_model)$x)
+ggplot(lda.data, aes(x = LD1, fill = Clase)) + 
+  geom_density(alpha = 0.5) + 
+  theme_classic()
 
 
 ```
+
+###########################################
+#Modelo LDA (Linear Discriminant Analysis)#
+###########################################
+
+La matriz de confusión muestra el número de predicciones correctas e incorrectas para cada clase:
+
+- AGH: 29 casos fueron correctamente clasificados como AGH. No hubo errores.
+- CFB: 60 casos fueron correctamente clasificados como CFB. Hubo 1 falso positivo (se predijo CFB cuando era CGC).
+- CGC: 27 casos fueron correctamente clasificados como CGC. Hubo 1 falso negativo (se predijo HPB cuando era CGC).
+- CHC: 27 casos fueron correctamente clasificados como CHC. No hubo errores.
+- HPB: 14 casos fueron correctamente clasificados como HPB. No hubo errores.
+
+Estadísticas Globales
+- Accuracy (Exactitud): La exactitud global del modelo es del 98.74%, lo que indica que clasificó correctamente el 98.74% de todos los casos. El intervalo de confianza del 95% (0.9553, 0.9985) sugiere una alta confianza en esta estimación.
+- Kappa: El coeficiente Kappa de 0.9833 indica una excelente concordancia entre las predicciones del modelo y las etiquetas reales, más allá del azar.
+- Valor P [Exactitud > Tasa de No Información]: El valor p < 2.2e-16 es extremadamente significativo. Esto indica que la exactitud del modelo es significativamente superior a la tasa de no información (0.3774).
+
+Estadísticas por Clase
+Sensibilidad (Recall):
+- AGH: 100% (todos los casos AGH reales fueron identificados correctamente).
+- CFB: 100% (todos los casos CFB reales fueron identificados correctamente).
+- CGC: 96.43% (casi todos los casos CGC reales fueron identificados correctamente).
+- CHC: 100% (todos los casos CHC reales fueron identificados correctamente).
+- HPB: 93.33% (la mayoría de los casos HPB reales fueron identificados correctamente).
+
+Especificidad:
+- AGH: 100% (todos los casos que no eran AGH fueron clasificados correctamente como no AGH).
+- CFB: 98.99% (casi todos los casos que no eran CFB fueron clasificados correctamente como no CFB).
+- CGC: 99.24% (casi todos los casos que no eran CGC fueron clasificados correctamente como no CGC).
+- CHC: 100% (todos los casos que no eran CHC fueron clasificados correctamente como no CHC).
+- HPB: 100% (todos los casos que no eran HPB fueron clasificados correctamente como no HPB).
+
+Valor Predictivo Positivo (PPV):
+- AGH: 100% (todos los casos predichos como AGH realmente eran AGH).
+- CFB: 98.36% (casi todos los casos predichos como CFB realmente eran CFB).
+- CGC: 96.43% (casi todos los casos predichos como CGC realmente eran CGC).
+- CHC: 100% (todos los casos predichos como CHC realmente eran CHC).
+- HPB: 100% (todos los casos predichos como HPB realmente eran HPB).
+
+Valor Predictivo Negativo (NPV):
+- AGH: 100% (todos los casos predichos como no AGH realmente no eran AGH).
+- CFB: 100% (todos los casos predichos como no CFB realmente no eran CFB).
+- CGC: 99.24% (casi todos los casos predichos como no CGC realmente no eran CGC).
+- CHC: 100% (todos los casos predichos como no CHC realmente no eran CHC).
+- HPB: 99.31% (casi todos los casos predichos como no HPB realmente no eran HPB).
+
+
+
+
+
 
 
 ### Métricas de evaluación

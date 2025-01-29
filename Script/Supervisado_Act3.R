@@ -60,22 +60,29 @@ data_scaled <- dataframe %>%
 # Quitamos la columna Muestra
 data_scaled <- data_scaled %>% dplyr::select(-Muestra)
 
+
+#filtrado de datos columnas de varianza cero
+filt_data_scaled <- data_scaled[,-nearZeroVar(data_scaled)]
+
 ------------------------------------------------------------------------------------------
 
 # Dividir el conjunto de datos: entrenamiento (80%) y prueba (20%)
-  
+
+dataframe$Clase <- as.factor(dataframe$Clase)
+levels(dataframe$Clase)  #Comprobar las clases existetes: "AGH" "CFB" "CGC" "CHC" "HPB"
+
 set.seed(1995)
 
-data_scaled$Clase <- as.factor(data_scaled$Clase)
-train_index <- createDataPartition(data_scaled$Clase, p = 0.8, list = FALSE)
+filt_data_scaled$Clase <- as.factor(filt_data_scaled$Clase)
+train_index <- createDataPartition(filt_data_scaled$Clase, p = 0.8, list = FALSE)
 
-train_data <- data_scaled[train_index, ]
-test_data <- data_scaled[-train_index, ]
+train_data <- filt_data_scaled[train_index, ]
+test_data <- filt_data_scaled[-train_index, ]
 
 train_data$Clase <- factor(train_data$Clase, levels = c("AGH", "CFB", "CGC", "CHC", "HPB"))
 test_data$Clase <- factor(test_data$Clase, levels = c("AGH", "CFB", "CGC", "CHC", "HPB"))
 
-str(data_scaled)
+str(filt_data_scaled)
 
 
 # Seleccionar las columnas numéricas para escalarlas
@@ -130,8 +137,6 @@ lda_model$scaling
 #Si un coeficiente es positivo, significa que un aumento en esa variable aumentará el valor de la función discriminante.
 #Si un coeficiente es negativo, significa que un aumento en esa variable disminuirá el valor de la función discriminante.
 
-#perimeter1 (6.530946007) tiene un coeficiente muy grande en LD1, lo que significa que es una variable muy importante para separar las clases en la primera función discriminante.
-#radius1 (-7.574833219)tiene un coeficiente negativo significativo en LD1, lo que indica que un aumento en radius1 tiende a desplazar la clasificación.
 
 
 lda_pred <- predict(lda_model, newdata = train_data)
@@ -156,13 +161,42 @@ lda_conf_matrix <- confusionMatrix(predicted_classes, true_classes)
 print(lda_conf_matrix)
 
 #Comentar tabla segun salga: ejemplO:
-#Acuracy: El modelo tiene una precisión del 94,69%. Esto significa que el 94,69% de las predicciones fueron correctas (el modelo acertó en la clasificación).
-#Sensitivity: La sensibilidad mide cuántas veces el modelo predijo correctamente la clase B entre las veces que realmente era  clase B. En este caso, es 1.0000, lo que significa que el modelo detectó todas las instancias de  clase B correctamente (100%).
-#Specificity: La especificidad mide cuántas veces el modelo predijo correctamente que no era  clase B. En este caso, 85.71% de las veces que no era  clase B, el modelo lo predijo correctamente.
-#Pos Pred Value: Este valor indica el porcentaje de veces que el modelo predijo  clase B correctamente cuando hizo esa predicción. Aquí es 92,21%.
-#Neg Pred Value: Mide cuántas veces el modelo predijo correctamente que no era  clase B cuando realmente no era  clase B. En este caso, el modelo predijo correctamente 100% de las veces que no era  clase B.
-#Balanced Accuracy: es un promedio de la sensibilidad y especificidad. En este caso, es 92,86%, lo que sugiere que el modelo tiene un buen desempeño en la  clase B.
-
+# La matriz de confusión muestra el número de predicciones correctas e incorrectas para cada clase:
+#   
+#   AGH: 29 casos fueron correctamente clasificados como AGH. No hubo errores.
+# CFB: 60 casos fueron correctamente clasificados como CFB. Hubo 1 falso positivo (se predijo CFB cuando era CGC).
+# CGC: 27 casos fueron correctamente clasificados como CGC. Hubo 1 falso negativo (se predijo HPB cuando era CGC).
+# CHC: 27 casos fueron correctamente clasificados como CHC. No hubo errores.
+# HPB: 14 casos fueron correctamente clasificados como HPB. No hubo errores.
+# Estadísticas Globales
+# Accuracy (Exactitud): La exactitud global del modelo es del 98.74%, lo que indica que clasificó correctamente el 98.74% de todos los casos. El intervalo de confianza del 95% (0.9553, 0.9985) sugiere una alta confianza en esta estimación.
+# Kappa: El coeficiente Kappa de 0.9833 indica una excelente concordancia entre las predicciones del modelo y las etiquetas reales, más allá del azar.
+# Valor P [Exactitud > Tasa de No Información]: El valor p < 2.2e-16 es extremadamente significativo. Esto indica que la exactitud del modelo es significativamente superior a la tasa de no información (0.3774).
+# Estadísticas por Clase
+# Sensibilidad (Recall):
+#   AGH: 100% (todos los casos AGH reales fueron identificados correctamente).
+# CFB: 100% (todos los casos CFB reales fueron identificados correctamente).
+# CGC: 96.43% (casi todos los casos CGC reales fueron identificados correctamente).
+# CHC: 100% (todos los casos CHC reales fueron identificados correctamente).
+# HPB: 93.33% (la mayoría de los casos HPB reales fueron identificados correctamente).
+# Especificidad:
+#   AGH: 100% (todos los casos que no eran AGH fueron clasificados correctamente como no AGH).
+# CFB: 98.99% (casi todos los casos que no eran CFB fueron clasificados correctamente como no CFB).
+# CGC: 99.24% (casi todos los casos que no eran CGC fueron clasificados correctamente como no CGC).
+# CHC: 100% (todos los casos que no eran CHC fueron clasificados correctamente como no CHC).
+# HPB: 100% (todos los casos que no eran HPB fueron clasificados correctamente como no HPB).
+# Valor Predictivo Positivo (PPV):
+#   AGH: 100% (todos los casos predichos como AGH realmente eran AGH).
+# CFB: 98.36% (casi todos los casos predichos como CFB realmente eran CFB).
+# CGC: 96.43% (casi todos los casos predichos como CGC realmente eran CGC).
+# CHC: 100% (todos los casos predichos como CHC realmente eran CHC).
+# HPB: 100% (todos los casos predichos como HPB realmente eran HPB).
+# Valor Predictivo Negativo (NPV):
+#   AGH: 100% (todos los casos predichos como no AGH realmente no eran AGH).
+# CFB: 100% (todos los casos predichos como no CFB realmente no eran CFB).
+# CGC: 99.24% (casi todos los casos predichos como no CGC realmente no eran CGC).
+# CHC: 100% (todos los casos predichos como no CHC realmente no eran CHC).
+# HPB: 99.31% (casi todos los casos predichos como no HPB realmente no eran HPB).
 
 
 #Gráfico
@@ -227,6 +261,8 @@ library(klaR)
 colnames(train_data)
 train_data$Clase <- as.factor(train_data$Clase)
 
+train_data <- train_data[, sapply(train_data, is.numeric) | names(train_data) == "Clase"]
+
 #Entrenar modelo RDA
 rda_model <- klaR::rda(Clase ~ ., data = train_data)
 
@@ -270,7 +306,7 @@ print(rda_conf_matrix)
 
 library(caret)
 
-
+set.seed(1995)
 #Crear un modelo de k-NN utilizando el paquete caret
 knnModel <- train(Clase ~ .,
                   data = train_data,
@@ -279,11 +315,11 @@ knnModel <- train(Clase ~ .,
                   preProcess = c("center", "scale"),
                   tuneLength = 30)
 knnModel
-#Corregir con el que salga: Accuracy was used to select the optimal model using the largest value. The final value used for the model was k = 9.
+# Accuracy was used to select the optimal model using the largest value. The final value used for the model was k = 15.
 
 
 plot(knnModel)
-#Comentar plot, ejemplo: A mayor número de vecinos peor va clasificando. En la gráfica vemos que k=9 es óptimo.
+#A mayor número de vecinos peor va clasificando. En la gráfica vemos que k=15 es óptimo.
 
 #Realizar predicciones en el conjunto de prueba utilizando el modelo entrenado
 predictions <- predict(knnModel, newdata = test_data )
@@ -293,12 +329,46 @@ predictions
 knn_conf_matrix <- confusionMatrix(predictions, test_data$Clase)
 print(knn_conf_matrix)
 
-#Comentar tabla segun salga: ejemplO:
-#Accuracy: la exactitud global del modelo es del 99.12%, lo que significa que el modelo clasificó correctamente el 99.12% de las instancias en total. El intervalo de confianza del 95% para la exactitud está entre 95.17% y 99.98%, lo que indica un alto grado de confianza en la precisión de esta estimación.
-#Sensitivity: la sensibilidad para la clase "B" (Benigno) es del 100.00%. Esto significa que el modelo identificó correctamente el 100.00% de las instancias que eran realmente "B". No hubo ningún falso negativo (ninguna instancia que era "B" se predijo como "M").
-#Specificity: la especificidad para la clase "B" es del 97.62%. Esto significa que el modelo predijo correctamente como "M" (Maligno) el 97.62% de las veces que la instancia no era "B". En otras palabras, de todas las instancias que eran realmente "M", el modelo las clasificó correctamente como "M" el 97.62% de las veces. Hubo falsos positivos (instancias que eran "M" pero se predijeron como "B").
-#Pos Pred Value: el valor predictivo positivo para la clase "B" es del 98.61%. Esto significa que, de todas las instancias que el modelo predijo como "B", el 98.61% realmente eran "B".
-#Neg Pred Value: el valor predictivo negativo para la clase "B" es del 100.00%. Esto significa que, de todas las instancias que el modelo predijo como no "B" (es decir, como "M"), el 100.00% realmente eran "M".
+#Tabla comentada:
+
+# La matriz de confusión muestra el número de predicciones correctas e incorrectas para cada clase:
+
+# AGH: 28 casos fueron correctamente clasificadas como AGH. Hubo 1 falso negativo (se predijo CHC cuando era AGH).
+# CFB: 60 casos fueron correctamente clasificadas como CFB. No hubo errores.
+# CGC: 28 casos fueron correctamente clasificadas como CGC. Hubo 1 falso positivo (se predijo CGC cuando era HPB).
+# CHC: 27 casos fueron correctamente clasificadas como CHC. Hubo 1 falso negativo (se predijo AGH cuando era CHC).
+# HPB: 14 casos fueron correctamente clasificadas como HPB. No hubo errores.
+# Estadísticas Globales
+# Accuracy (Exactitud): La exactitud global del modelo es del 98.74%, lo que indica que clasificó correctamente el 98.74% de todos los casos. El intervalo de confianza del 95% (0.9553, 0.9985) sugiere una alta confianza en esta estimación.
+# Kappa: El coeficiente Kappa de 0.9833 indica una excelente concordancia entre las predicciones del modelo y las etiquetas reales, más allá del azar.
+# Valor P [Exactitud > Tasa de No Información]: El valor p < 2.2e-16 es extremadamente significativo. Esto indica que la exactitud del modelo es significativamente superior a la tasa de no información (0.3774), que representa la exactitud que se obtendría si siempre se predijera la clase más frecuente.
+# Estadísticas por Clase
+# Sensibilidad (Recall):
+#   AGH: 96.55% (casi todos los casos AGH reales fueron identificadas correctamente).
+# CFB: 100% (todos los casos CFB reales fueron identificadas correctamente).
+# CGC: 100% (todos los casos CGC reales fueron identificadas correctamente).
+# CHC: 100% (todos los casos CHC reales fueron identificadas correctamente).
+# HPB: 93.33% (la mayoría de los casos HPB reales fueron identificadas correctamente).
+# Especificidad:
+#   AGH: 100% (todos los casos que no eran AGH fueron clasificadas correctamente como no AGH).
+# CFB: 100% (todos los casos que no eran CFB fueron clasificadas correctamente como no CFB).
+# CGC: 99.24% (casi todos los casos que no eran CGC fueron clasificadas correctamente como no CGC).
+# CHC: 99.24% (casi todos los casos que no eran CHC fueron clasificadas correctamente como no CHC).
+# HPB: 100% (todos los casos que no eran HPB fueron clasificadas correctamente como no HPB).
+# Valor Predictivo Positivo (PPV):
+#   AGH: 100% (todos los casos predichas como AGH realmente eran AGH).
+# CFB: 100% (todos los casos predichas como CFB realmente eran CFB).
+# CGC: 96.55% (la mayoría de las casos predichas como CGC realmente eran CGC).
+# CHC: 96.43% (la mayoría de las casos predichas como CHC realmente eran CHC).
+# HPB: 100% (todos los casos predichas como HPB realmente eran HPB).
+# Valor Predictivo Negativo (NPV):
+#   AGH: 99.24% (casi todos los casos predichas como no AGH realmente no eran AGH).
+# CFB: 100% (todos los casos predichas como no CFB realmente no eran CFB).
+# CGC: 100% (todos los casos predichas como no CGC realmente no eran CGC).
+# CHC: 100% (todos los casos predichas como no CHC realmente no eran CHC).
+# HPB: 99.31% (casi todos los casos predichas como no HPB realmente no eran HPB).
+
+
 
 #Obtener probabilidades
 probabilities_knn <- predict(knnModel, newdata = test_data, type = "prob")
@@ -325,7 +395,7 @@ svmModelLineal
 
 plot(svmModelLineal) 
 
-#Comentar plot ejemplo: Se ve como en el modelo de clasificacion, con valores mayores del cost va disminuyendo la precision, el primer valor es el que mejor funciona (C = 0.1052632).
+#En el gráfico se observa que el valor del cost mejor está cercano a 1.5 (C = 1.368421).
 
   
 #Realizar predicciones en el conjunto de prueba utilizando el modelo entrenado
@@ -336,7 +406,43 @@ predictions
 smvModelLineal_conf_matrix <- confusionMatrix(predictions, test_data$Clase)
 print(smvModelLineal_conf_matrix)
 
-#Comentar tabla segun salga:   
+# La matriz de confusión muestra el número de predicciones correctas e incorrectas para cada clase:
+
+# AGH: 29 casos fueron correctamente clasificados como AGH. No hubo errores.
+# CFB: 60 casos fueron correctamente clasificados como CFB. Hubo 2 falsos positivos (se predijo CFB cuando era CGC).
+# CGC: 28 casos fueron correctamente clasificados como CGC. Hubo 16 falsos positivos (se predijo CGC cuando era CHC) y 8 falsos positivos (se predijo CGC cuando era HPB).
+# CHC: 9 casos fueron correctamente clasificados como CHC.
+# HPB: 7 casos fueron correctamente clasificados como HPB.
+# Estadísticas Globales
+# Accuracy (Exactitud): La exactitud global del modelo es del 83.65%, lo que indica que clasificó correctamente el 83.65% de todos los casos. El intervalo de confianza del 95% (0.7697, 0.8903) sugiere una confianza moderada en esta estimación. Notablemente menor que el modelo anterior.
+# Kappa: El coeficiente Kappa de 0.7815 indica una buena concordancia entre las predicciones del modelo y las etiquetas reales, aunque no tan alta como el modelo anterior.
+# Valor P [Exactitud > Tasa de No Información]: El valor p < 2.2e-16 es extremadamente significativo. Esto indica que la exactitud del modelo es significativamente superior a la tasa de no información (0.3774).
+# Estadísticas por Clase
+# Sensibilidad (Recall):
+# AGH: 100% (todos los casos AGH reales fueron identificados correctamente).
+# CFB: 100% (todos los casos CFB reales fueron identificados correctamente).
+# CGC: 100% (todos los casos CGC reales fueron identificados correctamente).
+# CHC: 33.33% (solo un tercio de los casos CHC reales fueron identificados correctamente).
+# HPB: 46.67% (menos de la mitad de los casos HPB reales fueron identificados correctamente).
+# Especificidad:
+# AGH: 100% (todos los casos que no eran AGH fueron clasificados correctamente como no AGH).
+# CFB: 97.98% (casi todos los casos que no eran CFB fueron clasificados correctamente como no CFB).
+# CGC: 81.68% (un número considerable de casos que no eran CGC fueron incorrectamente clasificados como CGC).
+# CHC: 100% (todos los casos que no eran CHC fueron clasificados correctamente como no CHC).
+# HPB: 100% (todos los casos que no eran HPB fueron clasificados correctamente como no HPB).
+# Valor Predictivo Positivo (PPV):
+# AGH: 100% (todos los casos predichos como AGH realmente eran AGH).
+# CFB: 96.77% (casi todos los casos predichos como CFB realmente eran CFB).
+# CGC: 53.85% (algo más de la mitad de los casos predichos como CGC realmente eran CGC).
+# CHC: 100% (todos los casos predichos como CHC realmente eran CHC).
+# HPB: 100% (todos los casos predichos como HPB realmente eran HPB).
+# Valor Predictivo Negativo (NPV):
+# AGH: 100% (todos los casos predichos como no AGH realmente no eran AGH).
+# CFB: 100% (todos los casos predichos como no CFB realmente no eran CFB).
+# CGC: 100% (todos los casos predichos como no CGC realmente no eran CGC).
+# CHC: 88% (la mayoría de los casos predichos como no CHC realmente no eran CHC).
+# HPB: 94.74% (casi todos los casos predichos como no HPB realmente no eran HPB).
+# Prevalencia, Tasa de Detección, Prevalencia de Detección, Exactitud Balanceada: (Se interpretan de la misma manera que en el ejemplo anterior, pero con los valores correspondientes).
 
 #SVM lineal
 probabilities_svm_linear <- predict(svmModelLineal, newdata = test_data, type = "prob")
@@ -356,9 +462,44 @@ probabilities_svm_linear
 library(caret)
 library(rpart)
 library(rattle)
+
+str(train_data)
+
+any(is.na(train_data))
+
+formula <- as.formula("Clase ~ .")
+all.vars(formula) %in% colnames(train_data)
+
+missing_vars <- setdiff(all.vars(formula), colnames(train_data))
+print(missing_vars)
+
+predictors <- setdiff(colnames(train_data), "Clase")
+formula <- as.formula(paste("Clase ~", paste(predictors, collapse = " + ")))
+
+
+
+
+
+predictors <- setdiff(colnames(train_data), "Clase")
+print(predictors)
+
+formula <- as.formula(paste("Clase ~", paste(predictors, collapse = " + ")))
+print(formula)
+
+dtModel <- train(
+  formula, 
+  data = train_data,
+  method = "rpart",
+  trControl = trainControl(method = "cv", number = 10),
+  preProcess = c("center", "scale"),
+  tuneLength = 10
+)
+
+
+  
   
 # Crear un modelo de DT utilizando el paquete caret
- dtModel <- train(Clase ~.,
+dtModel <- train(Clase ~.,
                   data = train_data,
                   method = "rpart",
                   trControl = trainControl(method = "cv", number = 10),
