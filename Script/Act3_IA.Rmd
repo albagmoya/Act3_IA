@@ -440,7 +440,11 @@ Valor Predictivo Negativo (NPV):
 
 ##### ¿Cuál es el motivo por el cual habéis seleccionado ambas técnicas de aprendizaje supervisado? ¿Cuál ha dado mejores resultados a la hora de clasificar las muestras? Razonad vuestra respuesta (1 punto).
 
+Ver modelos supervisados variados y ver las diferencias que hay al aplicarlos. Ver las estadisiticas para contestar lo de resultados.
+
 ##### ¿Habéis considerado oportuno implementar algún método de reducción de dimensionalidad para procesar los datos antes de implementarlos en dichas técnicas? ¿Por qué? (0,5 puntos).
+
+Para implementar QDA se necesitaria porque sale el error "Error en qda.default(x, grouping, ...): some group is too small for 'qda'" que se podría solventar reduciendo la dimensionalidad, pero finalmente no se elige este modelo.
 
 ##### ¿Qué aspectos positivos y negativos tienen cada una de las técnicas que habéis escogido? (0,25 puntos).
 
