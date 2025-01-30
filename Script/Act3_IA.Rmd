@@ -76,7 +76,7 @@ El método escogido.....
 
 #Nombre de las columnas
 
-colnames(gene_expression) <- read_lines(""Datos/column_names.txt")
+colnames(gene_expression) <- read_lines("Datos/column_names.txt")
 
 # Asignar nombres a las columnas de classes
 
@@ -110,13 +110,7 @@ filt_data_scaled <- data_scaled[,-nearZeroVar(data_scaled)]
 
 ```
 
-
-
-
 # Implementación de cuatro métodos de aprendizaje no supervisado
-
-
-
 
 
 
@@ -240,6 +234,9 @@ El valor p < 2.2e-16 es extremadamente significativo. Esto indica que la exactit
 - CHC: 88% (la mayoría de los casos predichos como no CHC realmente no eran CHC).
 - HPB: 94.74% (casi todos los casos predichos como no HPB realmente no eran HPB).
 
+## Resumen general:
+
+El modelo tiene buen rendimiento general, pero presenta dificultades en la identificación de las clases CHC y HPB, lo que podría afectar su aplicabilidad en escenarios donde estas clases son críticas. 
 
 # Modelo kNN (k-Nearest Neighbors)
 
@@ -326,6 +323,10 @@ El valor p < 2.2e-16 es extremadamente significativo. Esto indica que la exactit
  - CHC: 100% (todos los casos predichas como no CHC realmente no eran CHC).
  - HPB: 99.31% (casi todos los casos predichas como no HPB realmente no eran HPB).
  
+## Resumen general:
+ 
+Este modelo ofrece un rendimiento sobresaliente, con una alta confiabilidad y precisión en la clasificación de todas las clases. Es una opción muy sólida para su implementación, aunque una mejora en la identificación de AGH y HPB podría elevar aún más su efectividad.
+
 
 # Modelo LDA (Linear Discriminant Analysis)
 
@@ -424,19 +425,23 @@ El valor p < 2.2e-16 es extremadamente significativo. Esto indica que la exactit
 - CHC: 100% (todos los casos predichos como no CHC realmente no eran CHC).
 - HPB: 99.31% (casi todos los casos predichos como no HPB realmente no eran HPB).
 
-# CURVA ROC y Area Bajo la Curva (AUC) 
+## Resumen general:
+
+El modelo presenta una excelente capacidad para clasificar correctamente todos los casos, con mínimos errores, y un rendimiento sobresaliente tanto en exactitud como en las métricas por clase.
+
+# CURVAS ROC y Area Bajo la Curva (AUC) 
 
 ```{r ROC, echo=FALSE}
 
-roc_knn <- roc(test_data$Clase, probabilities_knn[,2]) # Cambia [,2] según la clase positiva
+roc_knn <- roc(test_data$Clase, probabilities_knn[,5]) 
 auc_knn <- auc(roc_knn)
 cat("AUC k-NN:", auc_knn, "\n")
 
-roc_svm_linear <- roc(test_data$Clase, probabilities_svm_linear[,2])
+roc_svm_linear <- roc(test_data$Clase, probabilities_svm_linear[,5])
 auc_svm_linear <- auc(roc_svm_linear)
 cat("AUC SVM Lineal:", auc_svm_linear, "\n")
 
-roc_lda <- roc(test_data$Clase, probabilities_lda$posterior[, 2])
+roc_lda <- roc(test_data$Clase, probabilities_lda$posterior[, 5])
 auc_lda <- auc(roc_lda)
 cat("AUC LDA:", auc_lda, "\n")
 
@@ -456,11 +461,6 @@ legend("bottomright", legend = c(knn_legend, svm_legend,lda_legend),
 
 
 ```
-Un AUC (Área Bajo la Curva) de 1 significa que el modelo SVM lineal está clasificando perfectamente los datos del conjunto de prueba: es decir, no comete errores al separar las clases. 
-
-Esto es un resultado ideal, pero también puede ser una señal de alerta si nuestro conjunto de datos tiene características que podrían llevar a un sobreajuste.
-
-A continuación visualizamos una verificación de  la distribución de las clases en el conjunto de prueba
 
 ```{r verif, echo=FALSE}
 
