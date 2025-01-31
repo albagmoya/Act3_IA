@@ -112,6 +112,79 @@ filt_data_scaled <- data_scaled[,-nearZeroVar(data_scaled)]
 
 # Implementación de cuatro métodos de aprendizaje no supervisado
 
+## Modelos No Supervisados
+
+### Reducción de Dimensionalidad
+
+# Carga de librerías necesarias
+library(tidyverse)
+library(ggplot2)
+library(Rtsne)
+library(cluster)
+library(factoextra)
+
+# PCA se elige porque permite identificar las combinaciones lineales de variables que
+# explican la mayor variabilidad en los datos, facilitando la visualización y reduciendo
+# la dimensionalidad de manera eficiente. Como nuestro dataset parte de una gran dimensionalidad 
+# de variables, este método nos permite reducirlo, para explicar el porcentage de varianza deseado.
+
+# Cargar datos
+expresion_genica <- read.csv("gene_expression.csv", row.names = 1)
+clases <- read.csv("classes.csv", row.names = 1)
+
+# Unir los datos con las clases
+expresion_genica$Clase <- clases$Clase
+
+# Normalización de los datos
+expresion_genica_scaled <- scale(expresion_genica[, -ncol(expresion_genica)])
+
+# PCA
+pca_result <- prcomp(expresion_genica_scaled, center = TRUE, scale. = TRUE)
+
+# Visualización de PCA
+ggplot(data.frame(PC1 = pca_result$x[,1], PC2 = pca_result$x[,2], Clase = expresion_genica$Clase),
+       aes(x = PC1, y = PC2, color = Clase)) +
+  geom_point() +
+  labs(title = "PCA de expresión génica")
+
+# t-SNE se usa porque es una técnica no lineal adecuada para captar relaciones complejas
+# en los datos y mejorar la separación de clases en espacios de baja dimensión.
+
+# t-SNE
+tsne_result <- Rtsne(expresion_genica_scaled, perplexity = 30, verbose = TRUE, max_iter = 500)
+tsne_data <- data.frame(Dim1 = tsne_result$Y[,1], Dim2 = tsne_result$Y[,2], Clase = expresion_genica$Clase)
+
+# Visualización de t-SNE
+ggplot(tsne_data, aes(x = Dim1, y = Dim2, color = Clase)) +
+  geom_point() +
+  labs(title = "t-SNE de expresión génica")
+
+### Clusterización
+
+# K-means se usa porque es un algoritmo muy fácil para dividir datos en grupos,
+# ideal para conjuntos de datos grandes con distribución bien definida.
+
+# K-means
+set.seed(123)
+kmeans_result <- kmeans(expresion_genica_scaled, centers = 3, nstart = 25)
+expresion_genica$Cluster <- as.factor(kmeans_result$cluster)
+
+# Visualización K-means
+ggplot(data.frame(PC1 = pca_result$x[,1], PC2 = pca_result$x[,2], Cluster = expresion_genica$Cluster),
+       aes(x = PC1, y = PC2, color = Cluster)) +
+  geom_point() +
+  labs(title = "Clustering K-means sobre PCA")
+
+# La clusterización jerárquica permite observar la estructura de los datos y determinar
+# el número de clústeres basado en dendrogramas, lo que proporciona más flexibilidad
+# en comparación con K-means.
+
+# Clusterización Jerárquica
+dist_matrix <- dist(expresion_genica_scaled)
+hclust_result <- hclust(dist_matrix, method = "ward.D2")
+
+# Dendrograma
+fviz_dend(hclust_result, k = 3, rect = TRUE)
 
 
 # Implementación de tres métodos de aprendizaje supervisado 
