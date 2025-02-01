@@ -1,0 +1,754 @@
+---
+title: "Análisis de un conjunto de datos de origen biológico mediante técnicas de machine learning supervisadas y no supervisadas"
+author: "Carmen Palacios Clar, Lidia Sánchez Camós, Laura Ruiz Ripa, Alba García Moya"
+date: "01/02/2025"
+output:
+  html_document:
+    theme: journal
+    toc: TRUE
+    number_sections: TRUE
+    toc_depth: 3
+    toc_float:
+      collapsed: TRUE
+    fig_caption: true
+    css: logos_css/usr_styles.css
+subtitle: "Actividad 3. Algoritmos e Inteligencia Artificial"
+params:
+  mostra: true
+always_allow_html: true
+---
+
+```{=html}
+<script>
+$(document).ready(function() {
+  $head = $('#header');
+
+  $head.prepend('<img src=\"logos_css/Logo_UNIR.png" alt="Logo_UNIR" style="display: block; margin: 0 auto; width: 185px;">');
+});
+</script>
+
+```
+
+
+El objetivo de esta actividad es implementar de forma razonada técnicas de aprendizaje supervisado y no supervisado para el análisis de un conjunto de datos de origen biológico. 
+
+En primer lugar, se cargan las librerías necesarias para realizar la actividad y los conjuntos de datos.
+```{r echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
+setwd("/Users/laura/Act3AIA")
+
+#Cargar librerias
+library(glmnet) 
+library(tidyverse)
+library(caret) 
+library(rpart)
+library(rpart.plot)
+library(rattle)
+library(pROC) 
+library(PRROC) 
+library(gridExtra)
+library(dplyr)
+library(MASS) 
+library(class)
+library(klaR)
+library(rpart)
+library(ggplot2)
+library(Rtsne)
+library(cluster)
+library(factoextra)
+
+#Cargar dataset
+clases <- read.csv("classes.csv", header=F, sep = ";")
+gene_expression <- read.csv("gene_expression.csv", header=F, sep = ";", col.names = read_lines("column_names.txt"))
+```
+
+
+# Procesamiento de los datos
+
+Se realiza el procesamiento de los datos, incluyendo la eliminación de los valores NAs, el escalado de los datos y el filtrado las variables con una varianza cercana a cero, utilizando la función nearZeroVar().
+```{r}
+# Asignar nombres a las columnas de classes
+colnames(clases) <- c("Muestra", "Clase")
+
+# Datos NA 
+sumas <- colSums(gene_expression)
+columnascero <- names(sumas[sumas==0])
+gene_expression <- gene_expression[, !names(gene_expression) %in% columnascero] 
+
+# Unir archivos
+dataframe <-cbind(gene_expression, clases)
+
+# Mover columnas clase y muestra
+dataframe <- dataframe %>%
+  dplyr::select(Muestra, Clase, everything())
+
+#Escalado de datos
+data_scaled <- dataframe %>%
+  mutate(across(where(is.numeric), scale))
+
+# Eliminar la columna Muestra
+data_scaled1 <- data_scaled %>% dplyr::select(-Muestra)
+data_scaled2 <- data_scaled %>% dplyr::select(-Muestra, -Clase)
+
+#Filtrado de datos columnas de varianza cero
+filt_data_scaled1 <- data_scaled1[,-nearZeroVar(data_scaled)]
+filt_data_scaled2 <- data_scaled2[,-nearZeroVar(data_scaled2)]
+```
+
+# Implementación de cuatro métodos de aprendizaje no supervisado
+
+## Reducción de Dimensionalidad
+Como no se conoce si el conjunto de datos de expresión de genes tiene relación lineal, se van a utilizar algortimos lineales y no lineales para explorar y analizar las posibles relaciones, reducir la dimensionalidad y capturar patrones significativos. 
+
+### PCA
+El primer algoritmo que se va a utilizar es el PCA, una técnica lineal de reducción de la dimensionalidad que transforma un conjunto de datos en un nuevo conjunto de variables no correlacionadas. 
+Para realizarlo se utiliza la función prcomp() de la librería stats. Después, se obtiene los *eigenvalues* del PCA mediante la función get_eigenvalue() de la librería factoextra. Se representan gráficamente los dos primeros componentes del PCA con la librería ggplot2. 
+```{r}
+# PCA
+pca_result <- prcomp(filt_data_scaled2, center = TRUE, scale. = TRUE)
+
+# Eigenvalues
+eigenvalues<- get_eigenvalue(pca_result)
+
+# Visualización de PCA
+ggplot(data.frame(PC1 = pca_result$x[,1], PC2 = pca_result$x[,2], Clase = dataframe$Clase),
+       aes(x = PC1, y = PC2, color = Clase)) +
+  geom_point() +
+  labs(title = "PCA de expresión génica")
+```
+
+En la tabla de *eigenvalues*, aunque no se muestra por su extensión, se puede ver que la primera dimensión explica el 12,5% de la varianza y la segunda un 9,5%. Para explicar al menos el 70% de la varianza se tendrían que seleccionar las 42 primeras dimensiones que explicarían el 70.04%.
+
+En la representación de los dos primeros componentes unicamente se consigue separar del resto el grupo AGH.
+
+
+### t-SNE
+El t-SNE es una técnica no lineal de exploración y visualización de datos de alta dimensión mediante su mapeo en un espacio de baja dimensión (2D o 3D). 
+
+Para utilizar este algortimo, en primer lugar, se incluye una semilla de aleatorización para que los resultados sean reproducibles. Se utiliza la función Rtsne() de lalibrería Rtsne sobre el conjunto de datos. Se utiliza *perplexity* de 30. 
+```{r echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
+set.seed(1234)
+
+# t-SNE
+tsne_result <- Rtsne(filt_data_scaled2, perplexity = 30, verbose = TRUE, max_iter = 500)
+```
+
+Se extrae la variable Y de los resultados, que es donde se encuenta la matriz del t-SNE generada por el algoritmo y se realizan gráficos de puntos con los resultados del t-SNE con la librería ggplot2.
+```{r}
+# Visualización de t-SNE
+tsne_data <- data.frame(Dim1 = tsne_result$Y[,1], Dim2 = tsne_result$Y[,2], Clase = dataframe$Clase)
+ggplot(tsne_data, aes(x = Dim1, y = Dim2, color = Clase)) +
+  geom_point() +
+  labs(title = "t-SNE de expresión génica")
+```
+
+Como se puede ver en el gráfico, con este método se consiguen separar todos los grupos.
+
+## Clusterización
+
+Se utilizan los modelos de K-means y clusterización no jerárquica aglomerativa.
+
+### K-means
+
+El clustering con k-means es un método no jerárquico en el cual se asume que los puntos de datos se encuentran en grupos separados y no superpuestos, y es capaz de dividir un conjunto de datos en grupos de k.
+
+Para determinar el número k (número óptimo de *clusters* o centroides) para el algortimo k-means se utiliza la función fviz_nbclust() de la librería factoextra con el método "wss" (*Within-cluster Sum of Squares*).
+```{r fig.height=5, fig.width=9}
+# Número óptimo de clústers
+fviz_nbclust(filt_data_scaled2, kmeans, method = "wss") + 
+  ggtitle("Número óptimo de clusters") + 
+  labs(x = "Número de clusters (k)", y = "Suma de los cuadrados dentro del cluster") +
+  theme_minimal() + 
+  theme(
+    plot.title = element_text(hjust = 0.5)
+  )
+```
+Para determinar el número óptimo de clusters con esta gráfica hay que fijarse en el punto donde la pendiente es menos pronunciada, que en este caso es a partir de cuatro.
+
+Se realiza el clustering de k-means utilizando cinco clusters, ya que contamos con cinco clases, con la función kmeans() de la librería stats, y posteriormente se grafican los resultados con la función fviz_cluster() de la librería factoextra. 
+```{r}
+set.seed(1234)
+
+# K-means
+kmeans_result <- kmeans(filt_data_scaled2, centers = 5, nstart = 25)
+
+# Visualización K-means
+fviz_cluster(kmeans_result, filt_data_scaled2, xlab = '', ylab = '') +
+  ggtitle("Clustering no jerárquico con k-means, k=5") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+Se obtienen las etiquetas de los clusters para compararla con las clases reales.
+
+```{r}
+# Obtener etiquetas de los clusters
+dataframe$Cluster <- as.factor(kmeans_result$cluster)
+
+# Comparar las clases
+table(dataframe$Clase, dataframe$Cluster)
+```
+Como se puede ver en la tabla, las clases HPB, CHC, CGC y AGH están, en general, bien etiquetadas porque hay menos de 5 falsos negativos en cada caso. Sin embargo, la clase CFB no está bien etiquetada porque hay unicamente 225 casos correctos.
+
+### Clusterización jerárquica aglomerativa
+
+La clusterización jerárquica permite observar la estructura de los datos y determinar el número de clústeres basado en dendrogramas.
+
+Para realizar el modelo, se calcula la matriz de distancias entre las observaciones del conjunto de datos y se realiza la clusterización jerárquica utilizando la función hclust() y el método wardD2. Se visualiza el resultado con la función fviz_dend() de la librería factoextra.
+```{r message=FALSE, warning=FALSE}
+# Clusterización Jerárquica
+dist_matrix <- dist(filt_data_scaled2)
+hclust_result <- hclust(dist_matrix, method = "ward.D2")
+
+# Dendrograma
+fviz_dend(hclust_result, k = 5, rect = TRUE)
+```
+
+Se obtienen las etiquetas de los clusters mediante la función  cutree() de la librería stats para compararla con las clases reales.
+```{r}
+# Obtener etiquetas de los clusters
+clusters <- cutree(hclust_result, k = 5)  # k = número de clusters
+dataframe$Cluster <- as.factor(clusters)  # Convertir a factor para mejor interpretación
+
+# Comparar las clases
+table(dataframe$Clase, dataframe$Cluster)
+```
+Como se puede ver en la tabla, las clases HPB, CHC, CGC y AGH están, en general, bien etiquetadas porque hay unicamente un falso negativo en cada caso. Sin embargo, la clase CFB no está bien etiquetada porque hay unicamente 240 casos correctos.
+
+# Implementación de tres métodos de aprendizaje supervisado 
+
+En primer lugar, se convierte la variable respuesta (clase) a factor. Es necesario dividir el conjunto de datos en las observaciones que se utilizarán para entrenamiento y las que se utilizarán para prueba. Para ello se utiliza la función createDataPartition() de la librería caret para extraer los índices del conjunto de entrenamiento. En este caso el 80% de las observaciones se utilizarán para el entrenamiento. Se utiliza el argumento list = FALSE, para que el número de los índices los devuelva en forma de vector y no de lista. 
+
+Se generan las bases de datos que contegan los datos de entrenamiento en función del número de índice obtenido. También se genera la base de datos de prueba con el resto de las observaciones. Se vuelve a convertir la variable clase a factor.
+```{r}
+set.seed(1234)
+
+#División del conjunto de datos filtrados: entrenamiento (80%) y prueba (20%)
+dataframe$Clase <- as.factor(dataframe$Clase)
+filt_data_scaled1$Clase <- as.factor(filt_data_scaled1$Clase)
+train_index <- createDataPartition(filt_data_scaled1$Clase, p = 0.8, list = FALSE)
+
+train_data <- filt_data_scaled1[train_index, ]
+test_data <- filt_data_scaled1[-train_index, ]
+
+train_data$Clase <- factor(train_data$Clase, levels = c("AGH", "CFB", "CGC", "CHC", "HPB"))
+test_data$Clase <- factor(test_data$Clase, levels = c("AGH", "CFB", "CGC", "CHC", "HPB"))
+
+```
+
+## SVM lineal (Support Vector Machine)
+
+Se crea un modelo SVM lineal utilizando la función train() del paquete caret. Se define la técnica de validación cruzada (cv) con 10 subparticiones dentro del entrenamiento (folds). Mediante tuneLength se especifica la cantidad de combinaciones de hiperparámetros que el modelo debe probar durante el ajuste.
+```{r}
+# Modelo de SVM lineal 
+svmModelLineal <- train(Clase ~.,
+                        data = train_data,
+                        method = "svmLinear",
+                        trControl = trainControl(method = "cv", number = 10),
+                        preProcess = c("center", "scale"),
+                        tuneLength = 30, 
+                        prob.model = TRUE) 
+svmModelLineal
+```
+El parámero C con el que mejor precisión se obtiene es 1.
+
+A continuación se realizan predicciones sobre el conjunto de prueba utilizando el modelo SVM lineal y se calcula la matriz de confusión del modelo para conocer su precisión y otros parámetros.
+```{r}
+# Predicciones en el conjunto de prueba
+predictions_SMV_lin <- predict(svmModelLineal, newdata = test_data )
+  
+# Matriz de confusión
+smvModelLineal_conf_matrix <- confusionMatrix(predictions_SMV_lin, test_data$Clase)
+smvModelLineal_conf_matrix
+```
+
+Para finalizar, se obtienen las probabilidades de que un paciente se clasifique en cada clase, que se utilizarán posteriormente para las curvas de precisión.
+```{r}
+
+# Probabilidades
+probabilities_svm_linear <- predict(svmModelLineal, newdata = test_data, type = "prob")
+```
+
+### Matriz de confusión y métricas de evaluación
+La matriz de confusión muestra el número de predicciones correctas e incorrectas para cada clase:
+
+- AGH: 29 casos fueron correctamente clasificados como AGH. No hubo errores.
+- CFB: 60 casos fueron correctamente clasificados como CFB. Hubo 3 falsos positivos (se predijo CFB cuando era CGC o CHC).
+- CGC: 27 casos fueron correctamente clasificados como CGC. Hubo 23 falsos positivos (se predijo 20 veces CGC cuando era CHC y 3 veces cuando era HPB).
+- CHC: 5 casos fueron correctamente clasificados como CHC.
+- HPB: 12 casos fueron correctamente clasificados como HPB.
+
+**Accuracy (Exactitud)**
+
+La exactitud global del modelo es del 83.65%, lo que indica que clasificó correctamente el 83.65% de todos los casos. El intervalo de confianza del 95% (0.7697, 0.8903) sugiere na confianza moderada en esta estimación.
+
+**Kappa**
+
+El coeficiente Kappa de 0.7818 indica una buena concordancia entre las predicciones del modelo y las etiquetas reales.
+
+**Valor P [Exactitud > Tasa de No Información]**
+
+El valor p < 2.2e-16 es extremadamente significativo. Esto indica que la exactitud del modelo es significativamente superior a la tasa de no información (.3774).
+
+**Sensibilidad (Recall)**
+
+- AGH: 100% (todos los casos AGH reales fueron identificados correctamente).
+- CFB: 100% (todos los casos CFB reales fueron identificados correctamente).
+- CGC: 96.43% (casi todos los casos CGC reales fueron identificados correctamente).
+- CHC: 18.51% (solo el 18% de los casos CHC reales fueron identificados correctamente).
+- HPB: 80% (el 80% de los casos HPB reales fueron identificados correctamente).
+
+**Especificidad**
+
+-  AGH: 100% (todos los casos que no eran AGH fueron clasificados correctamente como no AGH).
+-  CFB: 97.98% (casi todos los casos que no eran CFB fueron clasificados correctamente como no CFB).
+-  CGC: 82.44% (un número considerable de casos que no eran CGC fueron incorrectamente clasificados como CGC).
+-  CHC: 100% (todos los casos que no eran CHC fueron clasificados correctamente como no CHC).
+-  HPB: 100% (todos los casos que no eran HPB fueron clasificados correctamente como no HPB).
+
+**Valor Predictivo Positivo (PPV)**
+
+- AGH: 100% (todos los casos predichos como AGH realmente eran AGH).
+- CFB: 95.24% (casi todos los casos predichos como CFB realmente eran CFB).
+- CGC: 54% (algo más de la mitad de los casos predichos como CGC realmente eran CGC).
+- CHC: 100% (todos los casos predichos como CHC realmente eran CHC).
+- HPB: 100% (todos los casos predichos como HPB realmente eran HPB).
+
+**Valor Predictivo Negativo (NPV)**
+
+- AGH: 100% (todos los casos predichos como no AGH realmente no eran AGH).
+- CFB: 100% (todos los casos predichos como no CFB realmente no eran CFB).
+- CGC: 99.08%% (casi todos los casos predichos como no CGC realmente no eran CGC).
+- CHC: 85.71% (la mayoría de los casos predichos como no CHC realmente no eran CHC).
+- HPB: 97.95% (casi todos los casos predichos como no HPB realmente no eran HPB).
+
+**Resumen general**
+
+El modelo tiene buen rendimiento general, pero presenta dificultades en la identificación de la clase CHC, lo que podría afectar su aplicabilidad en escenarios donde esta clase es crítica. 
+
+## Modelo k-NN (k-Nearest Neighbors)
+Se crea un modelo de k-NN utilizando la función train() del paquete caret. Se define la técnica de validación cruzada (cv) con 10 subparticiones dentro del entrenamiento (folds). Mediante tuneLenght = 30 se especifica la cantidad de combinaciones del hiperparámetro (k) que el modelo debe probar durante el ajuste.
+
+```{r}
+
+# Modelo de k-NN
+knnModel <- train(Clase ~ .,
+                  data = train_data,
+                  method = "knn",
+                  trControl = trainControl(method = "cv", number = 10),
+                  preProcess = c("center", "scale"),
+                  tuneLength = 30)
+knnModel
+
+```
+
+De los 30 valores de k que ha probado, la mejor precisión del modelo es con k = 31 vecinos.
+
+A continuación se realizan predicciones sobre el conjunto de prueba utilizando el modelo K-NN y se calcula la matriz de confusión del modelo para conocer su precisión y otros parámetros.
+```{r}
+# Predicciones en el conjunto de prueba
+predictions_KNN <- predict(knnModel, newdata = test_data )
+
+# Matriz de confusión
+knn_conf_matrix <- confusionMatrix(predictions_KNN, test_data$Clase)
+knn_conf_matrix
+```
+
+Para finalizar, se obtienen las probabilidades de que un paciente se clasifique en cada clase, que se utilizarán posteriormente para las curvas de precisión.
+```{r}
+# Probabilidades
+probabilities_knn <- predict(knnModel, newdata = test_data, type = "prob")
+```
+
+### Matriz de confusión y métricas de evaluación
+
+La matriz de confusión muestra el número de predicciones correctas e incorrectas para cada clase:
+
+ - AGH: 29 casos fueron correctamente clasificadas como AGH. No hubo errores.
+ - CFB: 60 casos fueron correctamente clasificadas como CFB. Hubo 1 falso positivo (se predijo CFB cuando era CGC).
+ - CGC: 27 casos fueron correctamente clasificadas como CGC. No hubo errores.
+ - CHC: 27 casos fueron correctamente clasificadas como CHC. No hubo errores.
+ - HPB: 15 casos fueron correctamente clasificadas como HPB. No hubo errores.
+
+**Accuracy (Exactitud)** 
+
+La exactitud global del modelo es del 99.37%, lo que indica que clasificó correctamente el 99.37% de todos los casos. El intervalo de confianza del 95% (0.9655, 0.9998) sugiere una alta confianza en esta estimación.
+
+**Kappa**
+
+El coeficiente Kappa de 0.9917 indica una excelente concordancia entre las predicciones del modelo y las etiquetas reales, más allá del azar.
+
+**Valor P [Exactitud > Tasa de No Información]**
+
+El valor p < 2.2e-16 es extremadamente significativo. Esto indica que la exactitud del modelo es significativamente superior a la tasa de no información (0.3774), que representa la exactitud que se obtendría si siempre se predijera la clase más frecuente.
+
+**Sensibilidad (Recall)**
+
+ - AGH: 100% (todos los casos AGH reales fueron identificadas correctamente).
+
+ - CFB: 100% (todos los casos CFB reales fueron identificadas correctamente).
+
+ - CGC: 96.43% (casi todos los casos CGC reales fueron identificadas correctamente).
+
+ - CHC: 100% (todos los casos CHC reales fueron identificadas correctamente).
+
+ - HPB: 100% (todos los casos HPB reales fueron identificadas correctamente).
+
+**Especificidad**
+
+ - AGH: 100% (todos los casos que no eran AGH fueron clasificadas correctamente como no AGH).
+
+ - CFB: 98.99% (casi todos los casos que no eran CFB fueron clasificadas correctamente como no CFB).
+
+ - CGC: 100% (todos los casos que no eran CGC fueron clasificadas correctamente como no CGC).
+
+ - CHC: 100% (todos los casos que no eran CHC fueron clasificadas correctamente como no CHC).
+
+ - HPB: 100% (todos los casos que no eran HPB fueron clasificadas correctamente como no HPB).
+
+**Valor Predictivo Positivo (PPV)**
+
+ - AGH: 100% (todos los casos predichos como AGH realmente eran AGH).
+
+ - CFB: 98.36% (casi todos los casos predichos como CFB realmente eran CFB).
+
+ - CGC: 100% (todos los casos predichos como CGC realmente eran CGC).
+
+ - CHC: 100% (todos los casos predichos como CHC realmente eran CHC).
+
+ - HPB: 100% (todos los casos predichos como HPB realmente eran HPB).
+
+**Valor Predictivo Negativo (NPV)**
+
+ - AGH: 100% (todos los casos predichos como no AGH realmente no eran AGH).
+
+ - CFB: 100% (todos los casos predichos como no CFB realmente no eran CFB).
+
+ - CGC: 99.24%% (casi todos los casos predichos como no CGC realmente no eran CGC).
+
+ - CHC: 100% (todos los casos predichos como no CHC realmente no eran CHC).
+
+ - HPB: 100% (todos los casos predichos como no HPB realmente no eran HPB).
+ 
+**Resumen general**
+ 
+Este modelo ofrece un rendimiento sobresaliente, con una alta confiabilidad y precisión en la clasificación de todas las clases. Es una opción muy sólida para su implementación.
+
+## LDA (Linear Discriminant Analysis)
+Para ajustar el modelo en el entrenamiento del LDA se utiliza la función lda() de la librería MASS.
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+#Modelo LDA 
+lda_model <- MASS::lda(Clase ~ ., data = train_data)
+```
+
+A continuación se realizan predicciones sobre el conjunto de prueba utilizando el modelo LDA y se calcula la matriz de confusión del modelo para conocer su precisión y otros parámetros.
+```{r}
+# Predicciones sobre el conjunto de prueba
+predictions_lda <- predict(lda_model, newdata = test_data)
+
+clases_LDA<- predictions_lda$class
+clases_verdaderas_LDA <- as.factor(test_data$Clase)
+
+# Matriz de confusión 
+lda_conf_matrix <- confusionMatrix(clases_LDA, clases_verdaderas_LDA)
+lda_conf_matrix
+
+```
+
+Para finalizar, se obtienen las probabilidades de que un paciente se clasifique en cada clase, que se utilizarán posteriormente para las curvas de precisión.
+```{r}
+# Probabilidades
+probabilities_lda <- predict(lda_model, newdata = test_data, type = "prob")
+```
+
+
+### Matriz de confusión y métricas de evaluación
+
+La matriz de confusión muestra el número de predicciones correctas e incorrectas para cada clase:
+
+- AGH: 29 casos fueron correctamente clasificados como AGH. No hubo errores.
+- CFB: 59 casos fueron correctamente clasificados como CFB. No hubo errores.
+- CGC: 27 casos fueron correctamente clasificados como CGC. Hubo 1 falso positivo (se predijo CGC cuando era CFB).
+- CHC: 27 casos fueron correctamente clasificados como CHC. No hubo errores.
+- HPB: 15 casos fueron correctamente clasificados como HPB. No hubo errores.
+
+**Accuracy (Exactitud)**
+
+La exactitud global del modelo es del 99.37%, lo que indica que clasificó correctamente el 98.74% de todos los casos. El intervalo de confianza del 95% (0.9655, 0.9998) sugiere una alta confianza en esta estimación.
+
+**Kappa**
+
+El coeficiente Kappa de 0.9917 indica una excelente concordancia entre las predicciones del modelo y las etiquetas reales, más allá del azar.
+
+**Valor P [Exactitud > Tasa de No Información]**
+
+El valor p < 2.2e-16 es extremadamente significativo. Esto indica que la exactitud del modelo es significativamente superior a la tasa de no información (0.3774).
+
+**Sensibilidad (Recall)**
+
+- AGH: 100% (todos los casos AGH reales fueron identificados correctamente).
+- CFB: 98.33% (casi todos los casos CFB reales fueron identificados correctamente).
+- CGC: 100% (todos los casos CGC reales fueron identificados correctamente).
+- CHC: 100% (todos los casos CHC reales fueron identificados correctamente).
+- HPB: 100% (todoslos casos HPB reales fueron identificados correctamente).
+
+**Especificidad**
+
+- AGH: 100% (todos los casos que no eran AGH fueron clasificados correctamente como no AGH).
+- CFB: 99.24% (casi todos los casos que no eran CFB fueron clasificados correctamente como no CFB).
+- CGC: 100% (todos los casos que no eran CGC fueron clasificados correctamente como no CGC).
+- CHC: 100% (todos los casos que no eran CHC fueron clasificados correctamente como no CHC).
+- HPB: 100% (todos los casos que no eran HPB fueron clasificados correctamente como no HPB).
+
+**Valor Predictivo Positivo (PPV)**
+
+- AGH: 100% (todos los casos predichos como AGH realmente eran AGH).
+- CFB: 100% (todos los casos predichos como CFB realmente eran CFB).
+- CGC: 96.55% (casi todos los casos predichos como CGC realmente eran CGC).
+- CHC: 100% (todos los casos predichos como CHC realmente eran CHC).
+- HPB: 100% (todos los casos predichos como HPB realmente eran HPB).
+
+**Valor Predictivo Negativo (NPV)**
+
+- AGH: 100% (todos los casos predichos como no AGH realmente no eran AGH).
+- CFB: 99% (todos los casos predichos como no CFB realmente no eran CFB).
+- CGC: 100 (casi todos los casos predichos como no CGC realmente no eran CGC).
+- CHC: 100% (todos los casos predichos como no CHC realmente no eran CHC).
+- HPB: 100% (todos los casos predichos como no HPB realmente no eran HPB).
+
+**Resumen general**
+
+El modelo presenta una excelente capacidad para clasificar correctamente todos los casos, con mínimos errores, y un rendimiento sobresaliente tanto en exactitud como en las métricas por clase.
+
+## CURVAS PR y Area Bajo la Curva (AUC) 
+
+Se calculan las curvas PR (*Precision-Recall*) de cada modelo que sirven para comparar como predicen los diferentes algoritmos de clasificación. Se utilizan las curvas PR y no curvas ROC (*Receiver Operating Characteristic*) porque, como se puede ver, las clases están desbalanceadas. 
+```{r}
+table(dataframe$Clase)
+```
+
+Las curvas PR se calculan utilizando la función pr.curve() de la librería PRROC.
+```{r fig.height=8, fig.width=10}
+# Curvas PR
+pr_knn<- pr.curve(scores.class0 = probabilities_knn[,2], weights.class0 = test_data$Clase == "CFB", curve = TRUE)
+cat("PR-curve KNN:", pr_knn$auc.integral,"\n")
+
+pr_SVMlin<- pr.curve(scores.class0 = probabilities_svm_linear[,2], weights.class0 = test_data$Clase == "CFB", curve = TRUE)
+cat("PR-curve SVM lineal:", pr_SVMlin$auc.integral,"\n")
+
+pr_LDA<- pr.curve(scores.class0 = probabilities_lda$posterior[,2], weights.class0 = test_data$Clase == "CFB", curve = TRUE)
+cat("PR-curve lda:", pr_LDA$auc.integral,"\n")
+
+#Gráfico
+plot(pr_knn, col = "blue", lwd = 2, rand.plot = TRUE, fill.area = TRUE)
+plot(pr_SVMlin, col = "green", add = TRUE, lwd = 2, rand.plot = TRUE, fill.area = TRUE)
+plot(pr_LDA, col = "red", add = TRUE, lwd = 2, rand.plot = TRUE, fill.area = TRUE)
+
+knn_legend <- paste ("PR-Curve kNN:", round(pr_knn$auc.integral, 4))
+SVMlin_legend <- paste ("PR-Curve SVM lineal:", round(pr_SVMlin$auc.integral, 4))
+lda_legend <- paste ("PR-Curve LDA:", round(pr_LDA$auc.integral, 4))
+
+legend("bottomright", legend = c(knn_legend, SVMlin_legend, lda_legend), col = c("blue", "green", "red"), lwd = 2)
+```
+Al interpretar la gráfica de curvas PR, podemos evaluar el rendimiento de los diferentes algoritmos de clasificación. El área bajo la curva (AUC) define como de bien separa las clases un modelo, de forma que los valores cercanos a 1 implican un mejor rendimiento.
+En esta gráfica, los modelos lineales tienen AUC = 1 (SVM lineal y LDA), que significa que alcanzan un rendimiento perfecto para este conjunto de datos. Sin embargo, el valor de 1 podría indicar un sobreajuste. Esto significa que el modelo ha aprendido patrones específicos del conjunto de entrenamiento, pero puede no generalizar bien a datos nuevos o no vistos. 
+El k-NN tiene un AUC ligeramente inferior, por encima de 0.99, lo que indica que también tiene muy buen desempeño.
+
+Teniendo todo en cuenta las curvas ROC y el resto de parámetros calculados para cada modelo, quizás el mejor modelo para la clasificación del diagnóstico en este conjunto de datos sería el k-NN.
+
+# Preguntas sobre las actividades
+**1. Procesamiento de los datos (0,5 puntos):**
+
+**¿Qué método habéis escogido para llevar a cabo la imputación de los datos? Razonad vuestra respuesta. (0,3 puntos).**
+
+Para tratar los valores faltantes en el conjunto de datos, se ha optado por la eliminación de las variables (genes) que contienen valores faltantes (NAs), en lugar de imputarlos con algún otro método. Se ha elegido este método porque de las 500 variables del conjunto de datos, solo 3 presentan valores faltantes (MIER3, ZCCHC12 y RPL22L1), lo que representa un 0,6% del total, por lo que su eliminación no genera un impacto significativo en la información disponible. Además, al eliminar estas variables se evita introducir sesgos derivados de técnicas de imputación que podrían afectar el análisis.
+
+**¿Habéis llevado a cabo algún otro tipo de procesamiento? Razonad vuestra respuesta. (0,2 puntos).**
+
+Además de la imputación de los datos faltantes, se han llevado a cabo otros procedimientos de preprocesamiento para mejorar la calidad del conjunto de datos antes de aplicar las técnicas de *machine learning*. 
+
+Se han escalado las variables numéricas utilizando la función scale() para garantizar que todas las variables tengan una media de 0 y una desviación estándar de 1. De esta forma todas tienen la misma magnitud y, por lo tanto, el mismo peso en el análisis. También se han filtrado las variables con una varianza cercana a cero utilizando la función nearZeroVar(), ya que no aportan información relevante al modelo y pueden afectar negativamente a los algoritmos de *machine learning*.
+
+**2. Métodos no supervisados (1 punto):**
+
+**¿Cuál es el motivo por el cual habéis seleccionado estas técnicas de reducción de dimensionalidad? (0,3 puntos).**
+
+Se han elegido las técnicas de PCA y t-SNE para incluir técnicas de reducción de la dimensionalidad lineales y no lineales, 
+
+PCA se elige porque permite identificar las combinaciones lineales de variables que explican la mayor variabilidad en los datos, facilitando la visualización y reduciendo la dimensionalidad de manera eficiente. Como el conjunro de datos parte de una gran dimensionalidad de variables, este método nos permite reducirlo, para explicar el porcentaje de varianza deseado.
+
+EL t-SNE se usa porque es una técnica no lineal adecuada para captar relaciones complejas en los datos y mejorar la separación de clases en espacios de baja dimensión.
+
+
+**¿Cuál es el motivo por el cual habéis seleccionado estas técnicas de clusterización? (0,3 puntos).**
+
+Se ha utilizado el método de K-means porque es un algoritmo muy fácil para dividir datos en grupos, ideal para conjuntos de datos grandes con distribución bien definida.
+
+Por otro lado, la clusterización jerárquica aglormerativa permite observar la estructura de los datos y determinar el número de clústeres basado en dendrogramas, lo que proporciona más flexibilidad en comparación con K-means.
+
+
+**En ambos casos, ¿qué aspectos positivos y negativos tienen cada una? (0,2 puntos).**
+
+**PCA**
+
+Ventajas:
+
+  - Es un método muy apropiado para la reducción de la dimensionalidad de datos lineales que no tiene un gran coste computacional. 
+
+  - Es especialmente efectivo en conjuntos de datos que poseen variables con altas correlaciones, y actúa eliminando las correlacionels entre las variables, mejorando la independecia de los datos.
+
+Desventajas:
+
+  - EL PCA solo se utiliza para conjuntos de datos cuyas variables están linealmente correlacionadas, ya que no captura relaciones no lineales en los datos. 
+
+  - Hay que seleccionar cuidadosamente los componentes principales, de forma que se explique la mayor variabildiad posibles y no haya una gran pérdida de información.
+
+  - Necesita procesos de estandarización, ya que los componentes principales pueden verse afectados por ruido en los datos.
+
+**t-SNE**
+
+Ventajas:
+
+  - Supera ampliamente a otras técnicas cuando los datos tienen estructuras no lineales.
+
+  - Es una técnica excelente para preservar relaciones locales de los datos y, al mismo tiempo, revela parte de la estructura global.
+
+Desvenatjas:
+
+  - Tiene un coste computacional alto, especialmente en conjuntos de datos grandes.
+
+  - Tiene un componente estocástico que afecta a su reproducibilidad, lo que lo convierte en un método no determinante.
+
+  - Está mas recomendado para la visualización de datos, ya que su rendimiento para reducir el conjunto de datos a más de tres dimensiones no es muy claro.
+
+  - Tiene hiperparámetros, como *perplexity*, difíciles de elegir correctamente y de los que depende el rendimiento del algoritmo.
+
+
+**Clustering no jerárquico de k-means**
+
+Ventajas:
+
+  - Es fácil de implementar y muy eficiente en cuanto a tiempo de ejecución.
+
+  - Los resultados son fáciles de interpretar ya que divide en difernetes clusters.
+
+Desventajas:
+
+  - Es sensible a los valores atípicos, pudiendo alterar significativamente los resultados del clustering.
+  
+-    Requiere predefinir el número de centroides antes de ejecutar el algoritmo, y puede ser complicado encontrar el número óptimo si no se conoce el número de grupos en los datos.
+
+**Clusterización jerárquica aglomerativa**
+
+Ventajas:
+
+  - No es necesario especificar un número de clústeres.
+  
+  - Es un poco más resistente a la presencia de valores atípicos que otros métodos de clusterización.
+
+Desventajas:
+
+  - Al poder utilizarse diferentes métricas a la hora de generar la matriz de disimilitud y métodos de *linkage*, puede dificultar la determinación de la clusterización óptima.
+
+  - Puede ser sensible a perturbaciones del conjunto de datos, es decir, eliminar un número n de muestras al azar puede conducir a una distinta clusterización.
+  
+  - En algunos casos puede resultar complicado definir un número de clústeres, a pesar de las facilidades que ofrece la representación del dendrograma.
+
+  - Puede ser computacionalmente costoso ante grandes conjuntos de datos.
+
+**En el caso de la clusterización, ¿podéis afirmar con certeza que los clústeres generados son los mejores posibles? Razonad vuestra respuesta. (0,2 puntos).**
+
+Respecto al clustering no jerárquico de k-means, se han elegido cinco clusters ya que en este caso se conoce información sobre el número de clusters que existen, pero al interpretar el gráfico de número óptimo de clusters indica que serían a partir de cuatro. Como se ha comentado anteriormente, unicamente cuatros de las cinco clases (HPB, CHC, CGC y AGH) están, en general, bien etiquetadas. Con la clusterización jerárquica aglomerativa, las mismas clases que con el clustering no jerárquico de k-means están bien etiquetadas.
+
+Teniendo esto en cuenta, ninguno de los dos métodos de clusterización separan bien las cinco clases.
+
+
+**3. Métodos supervisados (1,75 puntos):**
+
+**¿Cuál es el motivo por el cual habéis seleccionado ambas técnicas de aprendizaje supervisado? ¿Cuál ha dado mejores resultados a la hora de clasificar las muestras? Razonad vuestra respuesta (1 punto).**
+
+Se han seleccionado esta técnicas para incluir métodos lineales (SMV lineal y LDA), no líneales (k-NN) y que incluya reducción de la dimensionalidad (LDA).
+
+Anteriormente ya se han comentado la matriz de confusión y el resto de métricas de evaluación de los diferentes modelos, incluyendo las curvas PR. Los modelos SVM lineal, k-NN y LDA tienen en general muy buena precisión, pero LDA y k-NN tienen mejor precisión que SVM lineal (99,37% respecto a 83.65%). Respecto a las curvas PR, los modelos lineales tienen AUC = 1 (SVM lineal y LDA), que significa que alcanzan un rendimiento perfecto para este conjunto de datos, pero podría indicar un sobreajuste. El k-NN tiene un AUC ligeramente inferior, por encima de 0.99, lo que indica que también tiene muy buen desempeño.
+
+Teniendo todo en cuenta las curvas ROC y el resto de parámetros calculados para cada modelo, quizás el mejor modelo para la clasificación en este conjunto de datos sería el k-NN.
+
+**¿Habéis considerado oportuno implementar algún método de reducción de dimensionalidad para procesar los datos antes de implementarlos en dichas técnicas? ¿Por qué? (0,5 puntos).**
+
+No se ha considerado considerado oportuno implementar un método de reducción de dimensionalidad antes de aplicar las técnicas de aprendizaje supervisado para evitar la pérdida de información importante, lo que afectaría el rendimiento del modelo. Sin embargo, se ha utilizado el LDA (Análisis Discriminante Lineal), que incluye el paso de reducción de dimensionalidad.
+
+**¿Qué aspectos positivos y negativos tienen cada una de las técnicas que habéis escogido? (0,25 puntos).**
+
+**k-NN**
+
+Ventajas:
+
+  - Es muy simple tanto en comprensión como en implementación.
+  
+  - La fase de entrenamiento es extremadamente rápida debido a la falta de construcción de un modelo.
+  - Es capaz de adaptarse a medida que se recopilan nuevos datos, lo que le permite responder rápidamente a cambios en tiempo real en la entrada.
+
+Desventajas:
+
+  - La selección de un valor apropiado para k a menudo se realiza de forma arbitraria.
+  
+  - La fase de clasificación puede ser lenta, especialmente con grandes conjuntos de datos, ya que implica cálculos de distancia durante estaetapa.
+ 
+  - El algoritmo carece de una forma de manejar datos faltantes.
+  
+  - No muestra un buen rendimiento en el caso de datos desequilibrados.
+
+  - Sin un preprocesamiento adecuado, el algoritmo k-NN no puede manejar datos
+nominales o atípicos de manera efectiva.
+
+**SVM Lineal**
+
+Ventajas:
+
+  - Eficiente en espacios de alta dimensionalidad.
+  
+  - Maximiza la separación entre clases, lo que mejora la generalización del modelo.
+  
+  - Robusto frente a sobreajuste si los datos están bien separados linealmente.
+
+Desventajas:
+
+  - Menos efectivo en datos no linealmente separables.
+  
+  - Computacionalmente costoso con grandes volúmenes de datos.
+  
+**LDA**
+
+Ventajas:
+
+  - Computacionalmente eficiente.
+  
+  - Efectivo con conjuntos de datos donde las clases son bien diferenciables y siguen una distribución normal.
+  
+Desventajas: 
+
+  - Supone que las clases siguen una distribución normal, lo que puede no cumplirse en datos reales.
+  
+- Menos efectivo en problemas con datos altamente correlacionados o con distribuciones complejas.
+
+**4. De estas cuatro opciones, ¿qué tipo de arquitectura de deep learning sería la más adecuada para procesar datos de expresión génica? Razonad vuestra respuesta (0,25 puntos).**
+
+  **a) Red de perceptrones (multiperceptron layers).**
+  **b) Redes convolucionales.**
+  **c) Redes recurrentes.**
+  **d) Redes de grafos.**
+
+La respuesta correcta es la A) Red de perceptrones (multiperceptron layers), ya que es ideal para datos tabulares de alta dimensionalidad como la expresión génica, ya que puede modelar relaciones complejas entre las variables y optimizarse para evitar el sobreajuste.
+
+Las redes convulucionales son una sucesión de capas de convolución y *pooling*, que desenbocan en una capa o capas de de perceptrones que generarán el *output* final. Son las arquitecturas más empleadas para el procesamiento de imágenes o vídeo y tienen gran aplicabilidad en el diagnóstico médico, por ejemplo. 
+
+Las redes neuronales recurrentes se utilzian para el procesamiento de datos secuenciales, como el texto y el audio.
+
+Las redes de grafos se utilizan para capturar y analizar interacción entre elementos. Se utilizan cuando se trabaja con datos que tienen una estructura de grafo en lugar de una tabla o secuencia. 
+
+
+<hr />
+
+<p style="text-align: center;">
+  <a href="https://www.unir.net/" style="color: #808080;"><em>https://www.unir.net/</em></a>
+</p>
+
