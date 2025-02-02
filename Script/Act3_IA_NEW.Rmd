@@ -33,8 +33,11 @@ $(document).ready(function() {
 El objetivo de esta actividad es implementar de forma razonada técnicas de aprendizaje supervisado y no supervisado para el análisis de un conjunto de datos de origen biológico. 
 
 En primer lugar, se cargan las librerías necesarias para realizar la actividad y los conjuntos de datos.
-```{r echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
-setwd("/Users/laura/Act3AIA")
+``` {r setup, include=FALSE}
+
+# setwd("/Users/laura/Act3AIA")
+
+setwd ("/home/albagmoya/Escriptori/IA/Act3_IA")
 
 #Cargar librerias
 library(glmnet) 
@@ -56,16 +59,20 @@ library(Rtsne)
 library(cluster)
 library(factoextra)
 
-#Cargar dataset
-clases <- read.csv("classes.csv", header=F, sep = ";")
-gene_expression <- read.csv("gene_expression.csv", header=F, sep = ";", col.names = read_lines("column_names.txt"))
-```
 
+clases <- read.csv("/home/albagmoya/Escriptori/IA/Act3_IA/Datos/classes.csv", header=FALSE, sep=";")
+
+column_names <- readLines("/home/albagmoya/Escriptori/IA/Act3_IA/Datos/column_names.txt")
+gene_expression <- read.csv("/home/albagmoya/Escriptori/IA/Act3_IA/Datos/gene_expression.csv", 
+                            header=FALSE, sep=";", col.names=column_names)
+
+```
 
 # Procesamiento de los datos
 
 Se realiza el procesamiento de los datos, incluyendo la eliminación de los valores NAs, el escalado de los datos y el filtrado las variables con una varianza cercana a cero, utilizando la función nearZeroVar().
-```{r}
+```{r procesamiento , include=FALSE}
+
 # Asignar nombres a las columnas de classes
 colnames(clases) <- c("Muestra", "Clase")
 
@@ -102,7 +109,8 @@ Como no se conoce si el conjunto de datos de expresión de genes tiene relación
 ### PCA
 El primer algoritmo que se va a utilizar es el PCA, una técnica lineal de reducción de la dimensionalidad que transforma un conjunto de datos en un nuevo conjunto de variables no correlacionadas. 
 Para realizarlo se utiliza la función prcomp() de la librería stats. Después, se obtiene los *eigenvalues* del PCA mediante la función get_eigenvalue() de la librería factoextra. Se representan gráficamente los dos primeros componentes del PCA con la librería ggplot2. 
-```{r}
+
+```{r pca , echo=FALSE, warning=FALSE, message=FALSE}
 # PCA
 pca_result <- prcomp(filt_data_scaled2, center = TRUE, scale. = TRUE)
 
@@ -125,15 +133,15 @@ En la representación de los dos primeros componentes unicamente se consigue sep
 El t-SNE es una técnica no lineal de exploración y visualización de datos de alta dimensión mediante su mapeo en un espacio de baja dimensión (2D o 3D). 
 
 Para utilizar este algortimo, en primer lugar, se incluye una semilla de aleatorización para que los resultados sean reproducibles. Se utiliza la función Rtsne() de lalibrería Rtsne sobre el conjunto de datos. Se utiliza *perplexity* de 30. 
-```{r echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
+```{r tsne, include=FALSE}
 set.seed(1234)
 
 # t-SNE
 tsne_result <- Rtsne(filt_data_scaled2, perplexity = 30, verbose = TRUE, max_iter = 500)
 ```
-
 Se extrae la variable Y de los resultados, que es donde se encuenta la matriz del t-SNE generada por el algoritmo y se realizan gráficos de puntos con los resultados del t-SNE con la librería ggplot2.
-```{r}
+
+```{r tsen grafico , echo=FALSE}
 # Visualización de t-SNE
 tsne_data <- data.frame(Dim1 = tsne_result$Y[,1], Dim2 = tsne_result$Y[,2], Clase = dataframe$Clase)
 ggplot(tsne_data, aes(x = Dim1, y = Dim2, color = Clase)) +
@@ -152,7 +160,8 @@ Se utilizan los modelos de K-means y clusterización no jerárquica aglomerativa
 El clustering con k-means es un método no jerárquico en el cual se asume que los puntos de datos se encuentran en grupos separados y no superpuestos, y es capaz de dividir un conjunto de datos en grupos de k.
 
 Para determinar el número k (número óptimo de *clusters* o centroides) para el algortimo k-means se utiliza la función fviz_nbclust() de la librería factoextra con el método "wss" (*Within-cluster Sum of Squares*).
-```{r fig.height=5, fig.width=9}
+```{r echo=FALSE, fig.height=5, fig.width=9}
+
 # Número óptimo de clústers
 fviz_nbclust(filt_data_scaled2, kmeans, method = "wss") + 
   ggtitle("Número óptimo de clusters") + 
@@ -165,7 +174,8 @@ fviz_nbclust(filt_data_scaled2, kmeans, method = "wss") +
 Para determinar el número óptimo de clusters con esta gráfica hay que fijarse en el punto donde la pendiente es menos pronunciada, que en este caso es a partir de cuatro.
 
 Se realiza el clustering de k-means utilizando cinco clusters, ya que contamos con cinco clases, con la función kmeans() de la librería stats, y posteriormente se grafican los resultados con la función fviz_cluster() de la librería factoextra. 
-```{r}
+```{r kmeans , echo=FALSE}
+
 set.seed(1234)
 
 # K-means
@@ -180,7 +190,8 @@ fviz_cluster(kmeans_result, filt_data_scaled2, xlab = '', ylab = '') +
 
 Se obtienen las etiquetas de los clusters para compararla con las clases reales.
 
-```{r}
+```{r cluster , echo=FALSE}
+
 # Obtener etiquetas de los clusters
 dataframe$Cluster <- as.factor(kmeans_result$cluster)
 
@@ -194,7 +205,9 @@ Como se puede ver en la tabla, las clases HPB, CHC, CGC y AGH están, en general
 La clusterización jerárquica permite observar la estructura de los datos y determinar el número de clústeres basado en dendrogramas.
 
 Para realizar el modelo, se calcula la matriz de distancias entre las observaciones del conjunto de datos y se realiza la clusterización jerárquica utilizando la función hclust() y el método wardD2. Se visualiza el resultado con la función fviz_dend() de la librería factoextra.
-```{r message=FALSE, warning=FALSE}
+
+```{r cluster2 , echo=FALSE, warning=FALSE}
+
 # Clusterización Jerárquica
 dist_matrix <- dist(filt_data_scaled2)
 hclust_result <- hclust(dist_matrix, method = "ward.D2")
@@ -204,7 +217,9 @@ fviz_dend(hclust_result, k = 5, rect = TRUE)
 ```
 
 Se obtienen las etiquetas de los clusters mediante la función  cutree() de la librería stats para compararla con las clases reales.
-```{r}
+
+```{r cluster3 , echo=FALSE}
+
 # Obtener etiquetas de los clusters
 clusters <- cutree(hclust_result, k = 5)  # k = número de clusters
 dataframe$Cluster <- as.factor(clusters)  # Convertir a factor para mejor interpretación
@@ -219,7 +234,9 @@ Como se puede ver en la tabla, las clases HPB, CHC, CGC y AGH están, en general
 En primer lugar, se convierte la variable respuesta (clase) a factor. Es necesario dividir el conjunto de datos en las observaciones que se utilizarán para entrenamiento y las que se utilizarán para prueba. Para ello se utiliza la función createDataPartition() de la librería caret para extraer los índices del conjunto de entrenamiento. En este caso el 80% de las observaciones se utilizarán para el entrenamiento. Se utiliza el argumento list = FALSE, para que el número de los índices los devuelva en forma de vector y no de lista. 
 
 Se generan las bases de datos que contegan los datos de entrenamiento en función del número de índice obtenido. También se genera la base de datos de prueba con el resto de las observaciones. Se vuelve a convertir la variable clase a factor.
-```{r}
+
+```{r supervisat, echo=FALSE}
+
 set.seed(1234)
 
 #División del conjunto de datos filtrados: entrenamiento (80%) y prueba (20%)
@@ -238,7 +255,8 @@ test_data$Clase <- factor(test_data$Clase, levels = c("AGH", "CFB", "CGC", "CHC"
 ## SVM lineal (Support Vector Machine)
 
 Se crea un modelo SVM lineal utilizando la función train() del paquete caret. Se define la técnica de validación cruzada (cv) con 10 subparticiones dentro del entrenamiento (folds). Mediante tuneLength se especifica la cantidad de combinaciones de hiperparámetros que el modelo debe probar durante el ajuste.
-```{r}
+```{r svm, echo=FALSE}
+
 # Modelo de SVM lineal 
 svmModelLineal <- train(Clase ~.,
                         data = train_data,
@@ -252,7 +270,9 @@ svmModelLineal
 El parámero C con el que mejor precisión se obtiene es 1.
 
 A continuación se realizan predicciones sobre el conjunto de prueba utilizando el modelo SVM lineal y se calcula la matriz de confusión del modelo para conocer su precisión y otros parámetros.
-```{r}
+
+```{r svm 2, echo=FALSE}
+
 # Predicciones en el conjunto de prueba
 predictions_SMV_lin <- predict(svmModelLineal, newdata = test_data )
   
@@ -262,7 +282,7 @@ smvModelLineal_conf_matrix
 ```
 
 Para finalizar, se obtienen las probabilidades de que un paciente se clasifique en cada clase, que se utilizarán posteriormente para las curvas de precisión.
-```{r}
+```{r svm3, include=FALSE}
 
 # Probabilidades
 probabilities_svm_linear <- predict(svmModelLineal, newdata = test_data, type = "prob")
@@ -328,7 +348,7 @@ El modelo tiene buen rendimiento general, pero presenta dificultades en la ident
 ## Modelo k-NN (k-Nearest Neighbors)
 Se crea un modelo de k-NN utilizando la función train() del paquete caret. Se define la técnica de validación cruzada (cv) con 10 subparticiones dentro del entrenamiento (folds). Mediante tuneLenght = 30 se especifica la cantidad de combinaciones del hiperparámetro (k) que el modelo debe probar durante el ajuste.
 
-```{r}
+```{r knn1, echo=FALSE}
 
 # Modelo de k-NN
 knnModel <- train(Clase ~ .,
@@ -344,7 +364,7 @@ knnModel
 De los 30 valores de k que ha probado, la mejor precisión del modelo es con k = 31 vecinos.
 
 A continuación se realizan predicciones sobre el conjunto de prueba utilizando el modelo K-NN y se calcula la matriz de confusión del modelo para conocer su precisión y otros parámetros.
-```{r}
+```{r knn, echo=FALSE}
 # Predicciones en el conjunto de prueba
 predictions_KNN <- predict(knnModel, newdata = test_data )
 
@@ -354,7 +374,7 @@ knn_conf_matrix
 ```
 
 Para finalizar, se obtienen las probabilidades de que un paciente se clasifique en cada clase, que se utilizarán posteriormente para las curvas de precisión.
-```{r}
+```{r knn3, echo=FALSE}
 # Probabilidades
 probabilities_knn <- predict(knnModel, newdata = test_data, type = "prob")
 ```
@@ -435,13 +455,14 @@ Este modelo ofrece un rendimiento sobresaliente, con una alta confiabilidad y pr
 
 ## LDA (Linear Discriminant Analysis)
 Para ajustar el modelo en el entrenamiento del LDA se utiliza la función lda() de la librería MASS.
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
+```{r lda, echo=FALSE}
 #Modelo LDA 
 lda_model <- MASS::lda(Clase ~ ., data = train_data)
 ```
 
 A continuación se realizan predicciones sobre el conjunto de prueba utilizando el modelo LDA y se calcula la matriz de confusión del modelo para conocer su precisión y otros parámetros.
-```{r}
+```{r lda2, echo=FALSE}
+
 # Predicciones sobre el conjunto de prueba
 predictions_lda <- predict(lda_model, newdata = test_data)
 
@@ -455,7 +476,7 @@ lda_conf_matrix
 ```
 
 Para finalizar, se obtienen las probabilidades de que un paciente se clasifique en cada clase, que se utilizarán posteriormente para las curvas de precisión.
-```{r}
+```{r lda3, echo=FALSE}
 # Probabilidades
 probabilities_lda <- predict(lda_model, newdata = test_data, type = "prob")
 ```
@@ -522,12 +543,12 @@ El modelo presenta una excelente capacidad para clasificar correctamente todos l
 ## CURVAS PR y Area Bajo la Curva (AUC) 
 
 Se calculan las curvas PR (*Precision-Recall*) de cada modelo que sirven para comparar como predicen los diferentes algoritmos de clasificación. Se utilizan las curvas PR y no curvas ROC (*Receiver Operating Characteristic*) porque, como se puede ver, las clases están desbalanceadas. 
-```{r}
+```{r pr, echo=FALSE}
 table(dataframe$Clase)
 ```
 
 Las curvas PR se calculan utilizando la función pr.curve() de la librería PRROC.
-```{r fig.height=8, fig.width=10}
+```{r echo=FALSE, fig.height=8, fig.width=10}
 # Curvas PR
 pr_knn<- pr.curve(scores.class0 = probabilities_knn[,2], weights.class0 = test_data$Clase == "CFB", curve = TRUE)
 cat("PR-curve KNN:", pr_knn$auc.integral,"\n")
