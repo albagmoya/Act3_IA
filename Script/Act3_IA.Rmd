@@ -147,13 +147,12 @@ Tiene como objetivo clasificar datos en múltiples categorías (benigno, maligno
 
 ```
 
-
-
-
-
-
-
 ### Métricas de evaluación
+
+
+
+
+
 
 
 # Preguntas sobre las actividades
