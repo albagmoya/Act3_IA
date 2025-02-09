@@ -81,6 +81,8 @@ sumas <- colSums(gene_expression)
 columnascero <- names(sumas[sumas==0])
 gene_expression <- gene_expression[, !names(gene_expression) %in% columnascero] 
 
+any(is.na(data_))
+
 # Unir archivos
 dataframe <-cbind(gene_expression, clases)
 
